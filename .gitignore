@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Rime 編譯產物 (部署後自動生成,不納入版控)
+*.bin
+*.reverse.bin
+*.prism.bin
+*.table.bin
+*.userdb/
+*.userdb.txt
+sync/
+
+# 編輯器
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 注意: ipa.dict.yaml / ipa.schema.yaml 為「產生檔」但刻意納入版控,
+# 讓使用者可直接安裝不需跑 Python。修改請從 master/build_master.py 改起,
+# 改完後執行:
+#   python3 master/build_master.py
+#   python3 rime/gen_rime.py --master master/IPA_master.csv --outdir rime

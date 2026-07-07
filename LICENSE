@@ -1,0 +1,20 @@
+GNU GENERAL PUBLIC LICENSE
+Version 3, 29 June 2007
+
+Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+Everyone is permitted to copy and distribute verbatim copies
+of this license document, but changing it is not allowed.
+
+                            PREAMBLE
+
+The GNU General Public License is a free, copyleft license for
+software and other kinds of works.
+
+  [Full GPL v3 text omitted for brevity — replace this file with the
+   official text from https://www.gnu.org/licenses/gpl-3.0.txt
+   before publishing.]
+
+This project uses the Rime Input Method Engine, which is licensed
+under the GNU General Public License v3.0.
+Bundled font (optional): Charis SIL / Gentium, licensed under the
+SIL Open Font License (OFL) 1.1.

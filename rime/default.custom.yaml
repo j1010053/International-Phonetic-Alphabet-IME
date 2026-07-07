@@ -1,0 +1,4 @@
+# default.custom.yaml — 將 IPA 方案掛入方案清單
+patch:
+  schema_list/@next:
+    schema: ipa

@@ -1,0 +1,60 @@
+# Rime schema: IPA
+# encoding: utf-8
+# 由 gen_rime.py 產生 (lang=zh)
+schema:
+  schema_id: ipa
+  name: "IPA 國際音標"
+  version: "0.1.0"
+  author:
+    - "IPA IME 專案"
+  description: |
+    國際音標(IPA)輸入方案(POC)。四層編碼:X-SAMPA、描述式、助記、Praat。注音式:候選確認、Enter 上屏。
+
+switches:
+  - name: ascii_mode
+    reset: 0
+    states: [ "IPA", "ABC" ]
+
+engine:
+  processors:
+    - ascii_composer
+    - recognizer
+    - key_binder
+    - speller
+    - punctuator
+    - selector
+    - navigator
+    - fluid_editor        # 語句流編輯器: 選字累積於緩衝, Enter 整串上屏 (POC 驗證點 1)
+  segmentors:
+    - ascii_segmentor
+    - matcher
+    - abc_segmentor
+    - punct_segmentor
+    - fallback_segmentor
+  translators:
+    - punct_translator
+    - table_translator
+
+speller:
+  alphabet: '!"%&''()+,-./0123456789:<=>?@ABCDEFGHIJKLMNOQRSTUVWXYZ\^_`abcdefghijklmnopqrstuvwxyz{|}~'
+  delimiter: " ;"
+  auto_select: false      # 注音式: 唯一匹配不自動上屏 (POC 驗證點 2)
+
+translator:
+  dictionary: ipa
+  enable_completion: true # 前綴補全候選
+  enable_sentence: true
+  enable_encoder: false
+  enable_user_dict: false
+
+menu:
+  page_size: 9
+
+key_binder:
+  import_preset: default
+
+punctuator:
+  import_preset: default  # 在 alphabet 中的標點於組字時視為碼 (POC 驗證點 3)
+
+recognizer:
+  import_preset: default
