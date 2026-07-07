@@ -5,7 +5,7 @@
 語言參數目前影響方案名稱/說明(i18n 載體);碼不隨語言變。"""
 import csv, argparse, sys
 
-VERSION = '0.1.0'
+VERSION = '0.1.1'
 LAYER_WEIGHT = {'xsampa': 500, 'mnemonic': 400, 'descriptive': 300, 'praat': 200}
 
 def parse_codepoints(cp_field):
@@ -15,6 +15,10 @@ def parse_codepoints(cp_field):
 def load(master_path):
     rows = list(csv.DictReader(open(master_path, encoding='utf-8-sig')))
     entries = []  # (output_text, code, weight, layer, row_id)
+    # V3-a: 既是碼又是標點者,補「指向自己」的最高權重候選,使字面標點排第一。
+    # 先加入,dedupe 保留先見者(即高權重版),覆蓋碼表中同 (out,code) 的較低權重列。
+    for ch in ('.', '|', '\\'):
+        entries.append((ch, ch, 999, 'punct_self', 'PUNCT'))
     for r in rows:
         out = parse_codepoints(r['codepoint'])
         for layer in ('xsampa', 'descriptive', 'praat'):
@@ -118,14 +122,33 @@ translator:
 menu:
   page_size: 9
 
+# numpad 綁為選字鍵(主鍵盤數字列送字面數字供 | / ^ 碼使用) (POC 驗證點 7)
 key_binder:
   import_preset: default
+  bindings:
+    - {{ when: has_menu, accept: KP_1, send: 1 }}
+    - {{ when: has_menu, accept: KP_2, send: 2 }}
+    - {{ when: has_menu, accept: KP_3, send: 3 }}
+    - {{ when: has_menu, accept: KP_4, send: 4 }}
+    - {{ when: has_menu, accept: KP_5, send: 5 }}
+    - {{ when: has_menu, accept: KP_6, send: 6 }}
+    - {{ when: has_menu, accept: KP_7, send: 7 }}
+    - {{ when: has_menu, accept: KP_8, send: 8 }}
+    - {{ when: has_menu, accept: KP_9, send: 9 }}
 
+# 自訂標點:僅保留少數「非碼」標點即時上屏;. | \\ 等已在 alphabet 中者不列入,
+# 讓 speller 於組字時取用(修 V3-b: \\t. 尾端 . 不再延遲) (POC 驗證點 3)
 punctuator:
-  import_preset: default  # 在 alphabet 中的標點於組字時視為碼 (POC 驗證點 3)
+  half_shape:
+    ",": {{commit: ", "}}
+    "?": {{commit: "? "}}
+    "!": {{commit: "! "}}
 
 recognizer:
   import_preset: default
+  patterns:
+    # 保證以 \\ 起首的 Praat 碼(含 \\t. 等含標點者)全段落入 speller
+    ipa_code: "^\\\\[a-zA-Z0-9].*$"
 """
 
 CUSTOM = """# default.custom.yaml — 將 IPA 方案掛入方案清單

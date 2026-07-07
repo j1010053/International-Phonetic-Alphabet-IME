@@ -98,8 +98,6 @@ PRAAT = {
 PRAAT_BY_CODE = {
     'dev':r'\0v','voi':r'\vv','asp':r'\^h','rou+':r'\3v','rou-':r'\cv','adv':r'\+v','ret':r'\-v','cen':r'\:^','mce':r'\x^','syl':r'\|v','nsy':r'\nv','rho':r'\hr','bre':r'\:v','cre':r'\~v','lgl':r'\mv','lab':r'\^w','pzd':r'\^j','vzd':r'\^G','pha':r'\^9','vph':r'\~/','rai':r'\T^','low':r'\Tv','atr':r'\T(','rtr':r'\T)','dnt':r'\Nv','api':r'\Uv','lam':r'\Dv','nas':r'\~^','nrl':r'\^n','lrl':r'\^l','nor':r'\cn',
     'str1':r"\'1",'str2':r"\'2",'lng':r'\:f','hln':r'\.f','xsh':r'\N^','grp1':'','grp2':'||','sbr':'.','lnk':r'\_u',
-    'td5':r"\''",'td4':r"\'^",'td3':r'\-^','td2':r'\`^','td1':r'\``','tdr':r'\v^','tdf':r'\^^',
-    'tl5':r'\-5','tl4':r'\-4','tl3':r'\-3','tl2':r'\-2','tl1':r'\-1','tl15':'','tl51':'',
     'dstep':r'\|d','ustep':r'\|u','grise':r'\NE','gfall':r'\SE',
     'tie':r'\li','tieb':r'\LI',
 }
@@ -324,22 +322,31 @@ for en, zh, code, xs, c in SUPRA:
     add('suprasegmental', disp, xs, c, '', '', en, zh, codepoint='U+%04X' % code)
 
 # ---- 5.7 聲調 ----
-# 位準: (en, zh, diac_cp, diac_xsampa, td, letter_cp, letter_xsampa, tl)
-LEVEL = [
-    ('extra-high','超高',0x030B,'_T','td5',0x02E5,'<T>','tl5'),
-    ('high','高',0x0301,'_H','td4',0x02E6,'<H>','tl4'),
-    ('mid','中',0x0304,'_M','td3',0x02E7,'<M>','tl3'),
-    ('low','低',0x0300,'_L','td2',0x02E8,'<L>','tl2'),
-    ('extra-low','超低',0x030F,'_B','td1',0x02E9,'<B>','tl1'),
-]
-for en, zh, dcp, dxs, td, lcp, lxs, tl in LEVEL:
-    add('tone_diacritic', '\u25CC'+chr(dcp), dxs, td, '', '', f'{en} tone (diacritic)', f'{zh}調（調符）', codepoint='U+%04X' % dcp)
-    add('tone_letter', chr(lcp), lxs, tl, '', '', f'{en} tone letter', f'{zh}調値字母', codepoint='U+%04X' % lcp)
-# 連調 (調符二者 + 調値字母例)
-add('tone_diacritic', '\u25CC'+chr(0x030C), '_R', 'tdr', '', '', 'rising tone (diacritic)', '升調（調符）', codepoint='U+030C')
-add('tone_diacritic', '\u25CC'+chr(0x0302), '_F', 'tdf', '', '', 'falling tone (diacritic)', '降調（調符）', codepoint='U+0302')
-add('tone_letter', chr(0x02E9)+chr(0x02E5), '', 'tl15', '', '', 'rising tone letter (example)', '升調値字母（例）', codepoint='U+02E9 U+02E5')
-add('tone_letter', chr(0x02E5)+chr(0x02E9), '', 'tl51', '', '', 'falling tone letter (example)', '降調値字母（例）', codepoint='U+02E5 U+02E9')
+# 組合調符沿用 X-SAMPA _T/_H/_M/_L/_B(不另設描述式碼,見 OTHERTONE 註)。
+# 調値字母(Chao staff letter): 碼 = '|' + 1~3 位數字, 每位 1-5 逐位映射 ˩˨˧˦˥。
+CHAO = {1: 0x02E9, 2: 0x02E8, 3: 0x02E7, 4: 0x02E6, 5: 0x02E5}  # 1..5 -> ˩˨˧˦˥
+CHAO_ZH = {1:'超低',2:'低',3:'中',4:'高',5:'超高'}
+import itertools
+for n in (1, 2, 3):
+    for combo in itertools.product('12345', repeat=n):
+        digits = ''.join(combo)
+        letters = ''.join(chr(CHAO[int(d)]) for d in combo)
+        code = '|' + digits
+        cps = ' '.join('U+%04X' % CHAO[int(d)] for d in combo)
+        zh = ''.join(CHAO_ZH[int(d)] for d in combo)
+        en = 'Chao tone letter ' + '-'.join(combo)
+        add('tone_letter', letters, '', code, '', '', en, f'調値 {digits}({zh})', codepoint=cps)
+
+# 上標數字(superscript): 碼 = '^' + 數字。1~2 位允許 0-9;3 位限 1-5(調值連調語境)。
+SUP = {0:0x2070,1:0x00B9,2:0x00B2,3:0x00B3,4:0x2074,5:0x2075,6:0x2076,7:0x2077,8:0x2078,9:0x2079}
+for n in (1, 2, 3):
+    pool = '0123456789' if n < 3 else '12345'
+    for combo in itertools.product(pool, repeat=n):
+        digits = ''.join(combo)
+        sup = ''.join(chr(SUP[int(d)]) for d in combo)
+        cps = ' '.join('U+%04X' % SUP[int(d)] for d in combo)
+        add('superscript', sup, '', '^' + digits, '', '', f'superscript {digits}', f'上標數字 {digits}', codepoint=cps)
+
 # 其他調號
 OTHERTONE = [
     ('downstep','降階',0xA71C,'<D>','dstep'),

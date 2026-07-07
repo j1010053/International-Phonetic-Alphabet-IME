@@ -1,0 +1,7 @@
+# weasel.custom.yaml — 候選視窗外觀(接收端字型弱時,至少候選視窗正確顯示 IPA)
+# 需先安裝 Charis SIL(https://software.sil.org/charis/);未安裝可改 Gentium 或系統字型。
+patch:
+  "style/font_face": "Charis SIL"
+  "style/font_point": 16
+  "style/horizontal": true      # 候選橫排
+  "style/inline_preedit": true  # 組字串就地顯示

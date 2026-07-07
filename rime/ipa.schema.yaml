@@ -4,7 +4,7 @@
 schema:
   schema_id: ipa
   name: "IPA 國際音標"
-  version: "0.1.0"
+  version: "0.1.1"
   author:
     - "IPA IME 專案"
   description: |
@@ -50,11 +50,30 @@ translator:
 menu:
   page_size: 9
 
+# numpad 綁為選字鍵(主鍵盤數字列送字面數字供 | / ^ 碼使用) (POC 驗證點 7)
 key_binder:
   import_preset: default
+  bindings:
+    - { when: has_menu, accept: KP_1, send: 1 }
+    - { when: has_menu, accept: KP_2, send: 2 }
+    - { when: has_menu, accept: KP_3, send: 3 }
+    - { when: has_menu, accept: KP_4, send: 4 }
+    - { when: has_menu, accept: KP_5, send: 5 }
+    - { when: has_menu, accept: KP_6, send: 6 }
+    - { when: has_menu, accept: KP_7, send: 7 }
+    - { when: has_menu, accept: KP_8, send: 8 }
+    - { when: has_menu, accept: KP_9, send: 9 }
 
+# 自訂標點:僅保留少數「非碼」標點即時上屏;. | \ 等已在 alphabet 中者不列入,
+# 讓 speller 於組字時取用(修 V3-b: \t. 尾端 . 不再延遲) (POC 驗證點 3)
 punctuator:
-  import_preset: default  # 在 alphabet 中的標點於組字時視為碼 (POC 驗證點 3)
+  half_shape:
+    ",": {commit: ", "}
+    "?": {commit: "? "}
+    "!": {commit: "! "}
 
 recognizer:
   import_preset: default
+  patterns:
+    # 保證以 \ 起首的 Praat 碼(含 \t. 等含標點者)全段落入 speller
+    ipa_code: "^\\[a-zA-Z0-9].*$"

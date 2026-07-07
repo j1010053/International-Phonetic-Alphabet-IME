@@ -1,0 +1,1251 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+new file mode 100644
+index 0000000..11afe56
+--- /dev/null
++++ b/CHANGELOG.md
+@@ -0,0 +1,36 @@
++# Changelog
++
++## 0.1.1 — POC 第一輪回饋修正
++
++**依 Windows POC(V1–V6)測試結果調整。**
++
++### 輸入行為
++- **numpad 綁為選字鍵**(KP_1–9 選第 1–9 候選),補上主鍵盤數字列不能選字之缺口;
++  主鍵盤數字列送字面數字,供 `|` / `^` 碼使用。〔待再測〕
++- **標點優先序修正(V3-a)**:`.`、`|`、`\` 三者補「指向自己、最高權重」候選,
++  字面標點排第一。
++- **`\t.` 尾端 `.` 延遲修正(V3-b)**:自訂 punctuator 僅保留 `, ? !` 即時上屏,
++  `.` `|` `\` 交由 speller 於組字時取用;新增 recognizer 規則確保 `\` 起首之
++  Praat 碼整段落入 speller。〔待再測〕
++
++### 聲調 / 上標(依需求變更)
++- **取消 `td`(組合調符)**:組合調符改用 X-SAMPA `_T/_H/_M/_L/_B`,足夠直覺。
++- **調値字母改 `|` + 數字**:1~3 位、每位 1–5,逐位映射 ˩˨˧˦˥
++  (`|2`→˨、`|13`→˩˧、`|232`→˨˧˨)。共 155 列。取代原 `tl`。
++- **新增 `^` + 數字 = Unicode 上標數字** ¹²³⁴⁵…:1~2 位允許 0–9、3 位限 1–5
++  (`^35`→³⁵、`^214`→²¹⁴)。共 235 列。
++
++### 顯示
++- 新增 `weasel.custom.yaml`:候選視窗字型設 Charis SIL(接收端字型弱時之緩解;
++  V5 已確認輸入法輸出正確,顯示問題純在接收端字型)。
++
++### 資料
++- master:173 → 549 列。dict 條目:497 → 850。內部/主流撞名:0。
++
++### 已知待驗
++- numpad 選字與「數字在 alphabet」的互動需 Windows 實測;若 `send: N` 被 speller
++  重新吃掉,改用 Space/方向鍵選字或改綁定。
++- V3-b 之 punctuator/recognizer 調整需再測確認 `\t.` 即時顯示、`.` 不誤上屏。
++
++## 0.1.0 — 初版 POC
++- P0–P3:2020 IPA 表、編碼方案 v0.4、master 173 列、Rime schema 497 條。
+diff --git a/docs/poc-test-guide.md b/docs/poc-test-guide.md
+index 03619e0..35db270 100644
+--- a/docs/poc-test-guide.md
++++ b/docs/poc-test-guide.md
+@@ -29,42 +29,53 @@
+ - 打 `s`:應顯示候選(s 及 sh、sbr… 等補全),**不得**自動上屏。
+ - 繼續打成 `sh`:候選出現 ʃ。確認 `s`→`sh` 的前綴延伸順暢。
+ 
+-### V3 標點優先序
+-`.`、`|`、`\` 等已納入 alphabet,組字時應視為「碼」:
+-- 打 `.` → 應進入組字並顯示候選(音節界 .),而非直接當標點上屏。
+-- 打 `\t.` → 尾端的 `.` 應接在碼上(候選 ʈ),不得中途斷開。
+-- 打 `|` → 候選為小句群 |;打 `||` → 大句群 ‖。
+-- 已知取捨:一般句號也會先進組字、需選字上屏。記錄使用感受,若不可接受則後續以 recognizer/punctuator 調整。
++### V3 標點優先序(0.1.1 已修,請複測)
++`.`、`|`、`\` 已補「自指最高權重」候選,並自 punctuator 移除(交 speller)。
++- 打 `.` → **第一候選應為 `.` 本身**(其次才是描述式 `sbr` 等);選字後上屏。
++- 打 `\t.` → 尾端 `.` 應**立即**接上並顯示候選 ʈ(不再需多打一鍵)。〔V3-b 修正,重點複測〕
++- 打 `|` → 第一候選 `|` 本身;`||` → ‖;`|13` → ˩˧(調値,見 V5)。
++- 打 `\` → 第一候選 `\` 本身;續打成 `\sh` → ʃ。
+ 
+ ### V4 四層編碼抽測
+-同一符號四種打法皆應到達:
+ - ʃ:`S`(X-SAMPA)/ `sh`(助記)/ `paf`(描述式)/ `\sh`(Praat)。
+ - ɡ:`g` / `vvep` / `\gs`。ø:`2` / `cmfr` / `eu` / `\o/`。
+-- 分隔符:打 `t;s` 應得 t、s 兩符號(而非 t͡s);打 `ts` 應見 t͡s 候選。
++- 分隔符(**分號**):打 `t;s` 應得 t、s 兩符號;打 `ts` 應見 t͡s 候選。
+ 
+-### V5 附加符號與疊加
+-- `alp` 選 t → `dnt` 選 ◌̪ → 緩衝 t̪ → Enter。
+-- 聲調:母音後打 `td4`(組合調符)、獨立打 `tl15`(˩˥)。
++### V5 附加符號、聲調、上標(碼已改版)
++- 附加符號:`alp` 選 t → `dnt` 選 ◌̪ → 緩衝 t̪ → Enter。
++- **組合調符**:改用 X-SAMPA,如 é 打 `e` 選、再打 `_H`(高調符)。(原 `td` 已取消)
++- **調値字母**:`|` + 數字(每位 1–5)。`|2`→˨、`|13`→˩˧、`|232`→˨˧˨。(原 `tl` 已取消)
++- **上標數字**:`^` + 數字。`^35`→³⁵、`^214`→²¹⁴、`^70`→⁷⁰(2 位可 0–9,3 位限 1–5)。
+ - 塞擦組合式:`alp` `tie` `allf` → t͡ɬ。
+-- 在 Word/記事本檢查上屏後的疊加顯示(建議先裝 Charis SIL 或 Gentium)。
+-- 已知限制:分次上屏的「基底+組合符」無法跨次 NFC 合成(如 e+́ 不會合成 é);常用組合將於 P4 預生成整列解決。
++- 上屏後在 Word/瀏覽器檢查疊加顯示(記事本弱,建議裝 Charis SIL)。
++- 已知限制:分次上屏的「基底+組合符」無法跨次 NFC 合成;常用組合 P4 預生成解決。
+ 
+ ### V6 中英切換
+-- Shift(或 F4 內開關)切到 ABC 直打英文,再切回 IPA。
++- Shift(或 F4 內開關)切 ABC 直打英文,再切回 IPA。
++
++### V7 numpad 選字(0.1.1 新增,請複測)
++- 叫出候選後,按 **numpad 1–9** 應選第 1–9 候選。
++- 同時確認:**主鍵盤數字列**在組字中送**字面數字**(供 `|13`、`^35` 等碼),不誤選字。
++- 〔風險〕若 numpad 按下反而把數字送進組字串(被 speller 吃掉),請記錄——
++  此為「數字在 alphabet」的已知互動風險,回傳後改用 Space/方向鍵選字或改綁定。
+ 
+ ---
+ 
+ ## 3. 本 POC 的設計決定(供對照)
+ 
+ - `speller/auto_select: false`:注音式核心。
+-- `speller/delimiter: " ;"`:分隔符採 **分號**。原定 `'` 因 Praat 碼(`\'1`、`\''` 等)含單引號而衝突,經全碼掃描改用未被任何碼使用的 `;`(其餘可選:`# $ * [ ]`)。
+-- X-SAMPA 顎化採 `_j`(標準允許 `'` 或 `_j`;`'` 讓給 Praat 碼)。
+-- alphabet 由產生器**自碼表實際字元集生成**(87 字元),不手寫。
+-- 權重:X-SAMPA 500 > 助記 400 > 描述式 300 > Praat 200,影響補全候選排序。
+-- 候選說明(顯示中文描述)屬 P5,POC 不含;規劃以 librime-lua filter 實作。
++- `speller/delimiter: " ;"`:分隔符採 **分號**(全碼掃描確認未被任何碼使用)。
++- 組合調符用 X-SAMPA `_T/_H/_M/_L/_B`;調値字母 `|`+數字;上標 `^`+數字。
++- X-SAMPA 顎化採 `_j`(`'` 讓給 Praat 重音碼 `\'1`)。
++- 標點 `. | \`:自指候選最高權重(999)+ 移出 punctuator,由 speller 取用。
++- numpad 綁選字;主鍵盤數字列送字面數字。
++- alphabet 由產生器自碼表字元集生成(87 字元),不手寫。
++- 權重:X-SAMPA 500 > 助記 400 > 描述式 300 > Praat 200(標點自指 999)。
++- 候選說明(顯示中文描述)屬 P5,規劃以 librime-lua filter 實作。
+ 
+ ## 4. 測試結果記錄格式
+-每個驗證點記:通過 / 行為偏差(描述實際行為)/ 失敗。V1 若偏差,附「express_editor 對照結果」。回傳後據以修 schema、出 0.1.1。
++每個驗證點記:通過 / 行為偏差(描述實際行為)/ 失敗。重點複測 **V3-b、V7**。
++回傳後據以修正,出 0.1.2。
+ 
+ ## 5. 重新產生
+ 修改 `IPA_master.csv` 的源頭 `build_master.py` 後:
+diff --git a/master/IPA_master.csv b/master/IPA_master.csv
+index d9a663e..cbf1765 100644
+--- a/master/IPA_master.csv
++++ b/master/IPA_master.csv
+@@ -152,23 +152,399 @@ SUP150,suprasegmental,|,U+007C,|,grp1,,,,minor (foot) group,小句群,
+ SUP151,suprasegmental,‖,U+2016,||,grp2,,,||,major (intonation) group,大句群,
+ SUP152,suprasegmental,.,U+002E,.,sbr,,,.,syllable break,音節界,
+ SUP153,suprasegmental,‿,U+203F,-\,lnk,,,\_u,linking,連音,
+-TON154,tone_diacritic,◌̋,U+030B,_T,td5,,,\'',extra-high tone (diacritic),超高調（調符）,
+-TON155,tone_letter,˥,U+02E5,<T>,tl5,,,\-5,extra-high tone letter,超高調値字母,
+-TON156,tone_diacritic,◌́,U+0301,_H,td4,,,\'^,high tone (diacritic),高調（調符）,
+-TON157,tone_letter,˦,U+02E6,<H>,tl4,,,\-4,high tone letter,高調値字母,
+-TON158,tone_diacritic,◌̄,U+0304,_M,td3,,,\-^,mid tone (diacritic),中調（調符）,
+-TON159,tone_letter,˧,U+02E7,<M>,tl3,,,\-3,mid tone letter,中調値字母,
+-TON160,tone_diacritic,◌̀,U+0300,_L,td2,,,\`^,low tone (diacritic),低調（調符）,
+-TON161,tone_letter,˨,U+02E8,<L>,tl2,,,\-2,low tone letter,低調値字母,
+-TON162,tone_diacritic,◌̏,U+030F,_B,td1,,,\``,extra-low tone (diacritic),超低調（調符）,
+-TON163,tone_letter,˩,U+02E9,<B>,tl1,,,\-1,extra-low tone letter,超低調値字母,
+-TON164,tone_diacritic,◌̌,U+030C,_R,tdr,,,\v^,rising tone (diacritic),升調（調符）,
+-TON165,tone_diacritic,◌̂,U+0302,_F,tdf,,,\^^,falling tone (diacritic),降調（調符）,
+-TON166,tone_letter,˩˥,U+02E9 U+02E5,,tl15,,,,rising tone letter (example),升調値字母（例）,
+-TON167,tone_letter,˥˩,U+02E5 U+02E9,,tl51,,,,falling tone letter (example),降調値字母（例）,
+-TON168,tone_other,ꜜ,U+A71C,<D>,dstep,,,\|d,downstep,降階,
+-TON169,tone_other,ꜛ,U+A71B,<U>,ustep,,,\|u,upstep,升階,
+-TON170,tone_other,↗,U+2197,<R>,grise,,,\NE,global rise,全升,
+-TON171,tone_other,↘,U+2198,<F>,gfall,,,\SE,global fall,全降,
+-TIE172,tie,◌͡◌,U+0361,_,tie,,,\li,tie bar (above),連結弧（上）,combining;塞擦/雙重調音
+-TIE173,tie,◌͜◌,U+035C,,tieb,,,\LI,tie bar (below),連結弧（下）,combining
++TON154,tone_letter,˩,U+02E9,,|1,,,,Chao tone letter 1,調値 1(超低),
++TON155,tone_letter,˨,U+02E8,,|2,,,,Chao tone letter 2,調値 2(低),
++TON156,tone_letter,˧,U+02E7,,|3,,,,Chao tone letter 3,調値 3(中),
++TON157,tone_letter,˦,U+02E6,,|4,,,,Chao tone letter 4,調値 4(高),
++TON158,tone_letter,˥,U+02E5,,|5,,,,Chao tone letter 5,調値 5(超高),
++TON159,tone_letter,˩˩,U+02E9 U+02E9,,|11,,,,Chao tone letter 1-1,調値 11(超低超低),
++TON160,tone_letter,˩˨,U+02E9 U+02E8,,|12,,,,Chao tone letter 1-2,調値 12(超低低),
++TON161,tone_letter,˩˧,U+02E9 U+02E7,,|13,,,,Chao tone letter 1-3,調値 13(超低中),
++TON162,tone_letter,˩˦,U+02E9 U+02E6,,|14,,,,Chao tone letter 1-4,調値 14(超低高),
++TON163,tone_letter,˩˥,U+02E9 U+02E5,,|15,,,,Chao tone letter 1-5,調値 15(超低超高),
++TON164,tone_letter,˨˩,U+02E8 U+02E9,,|21,,,,Chao tone letter 2-1,調値 21(低超低),
++TON165,tone_letter,˨˨,U+02E8 U+02E8,,|22,,,,Chao tone letter 2-2,調値 22(低低),
++TON166,tone_letter,˨˧,U+02E8 U+02E7,,|23,,,,Chao tone letter 2-3,調値 23(低中),
++TON167,tone_letter,˨˦,U+02E8 U+02E6,,|24,,,,Chao tone letter 2-4,調値 24(低高),
++TON168,tone_letter,˨˥,U+02E8 U+02E5,,|25,,,,Chao tone letter 2-5,調値 25(低超高),
++TON169,tone_letter,˧˩,U+02E7 U+02E9,,|31,,,,Chao tone letter 3-1,調値 31(中超低),
++TON170,tone_letter,˧˨,U+02E7 U+02E8,,|32,,,,Chao tone letter 3-2,調値 32(中低),
++TON171,tone_letter,˧˧,U+02E7 U+02E7,,|33,,,,Chao tone letter 3-3,調値 33(中中),
++TON172,tone_letter,˧˦,U+02E7 U+02E6,,|34,,,,Chao tone letter 3-4,調値 34(中高),
++TON173,tone_letter,˧˥,U+02E7 U+02E5,,|35,,,,Chao tone letter 3-5,調値 35(中超高),
++TON174,tone_letter,˦˩,U+02E6 U+02E9,,|41,,,,Chao tone letter 4-1,調値 41(高超低),
++TON175,tone_letter,˦˨,U+02E6 U+02E8,,|42,,,,Chao tone letter 4-2,調値 42(高低),
++TON176,tone_letter,˦˧,U+02E6 U+02E7,,|43,,,,Chao tone letter 4-3,調値 43(高中),
++TON177,tone_letter,˦˦,U+02E6 U+02E6,,|44,,,,Chao tone letter 4-4,調値 44(高高),
++TON178,tone_letter,˦˥,U+02E6 U+02E5,,|45,,,,Chao tone letter 4-5,調値 45(高超高),
++TON179,tone_letter,˥˩,U+02E5 U+02E9,,|51,,,,Chao tone letter 5-1,調値 51(超高超低),
++TON180,tone_letter,˥˨,U+02E5 U+02E8,,|52,,,,Chao tone letter 5-2,調値 52(超高低),
++TON181,tone_letter,˥˧,U+02E5 U+02E7,,|53,,,,Chao tone letter 5-3,調値 53(超高中),
++TON182,tone_letter,˥˦,U+02E5 U+02E6,,|54,,,,Chao tone letter 5-4,調値 54(超高高),
++TON183,tone_letter,˥˥,U+02E5 U+02E5,,|55,,,,Chao tone letter 5-5,調値 55(超高超高),
++TON184,tone_letter,˩˩˩,U+02E9 U+02E9 U+02E9,,|111,,,,Chao tone letter 1-1-1,調値 111(超低超低超低),
++TON185,tone_letter,˩˩˨,U+02E9 U+02E9 U+02E8,,|112,,,,Chao tone letter 1-1-2,調値 112(超低超低低),
++TON186,tone_letter,˩˩˧,U+02E9 U+02E9 U+02E7,,|113,,,,Chao tone letter 1-1-3,調値 113(超低超低中),
++TON187,tone_letter,˩˩˦,U+02E9 U+02E9 U+02E6,,|114,,,,Chao tone letter 1-1-4,調値 114(超低超低高),
++TON188,tone_letter,˩˩˥,U+02E9 U+02E9 U+02E5,,|115,,,,Chao tone letter 1-1-5,調値 115(超低超低超高),
++TON189,tone_letter,˩˨˩,U+02E9 U+02E8 U+02E9,,|121,,,,Chao tone letter 1-2-1,調値 121(超低低超低),
++TON190,tone_letter,˩˨˨,U+02E9 U+02E8 U+02E8,,|122,,,,Chao tone letter 1-2-2,調値 122(超低低低),
++TON191,tone_letter,˩˨˧,U+02E9 U+02E8 U+02E7,,|123,,,,Chao tone letter 1-2-3,調値 123(超低低中),
++TON192,tone_letter,˩˨˦,U+02E9 U+02E8 U+02E6,,|124,,,,Chao tone letter 1-2-4,調値 124(超低低高),
++TON193,tone_letter,˩˨˥,U+02E9 U+02E8 U+02E5,,|125,,,,Chao tone letter 1-2-5,調値 125(超低低超高),
++TON194,tone_letter,˩˧˩,U+02E9 U+02E7 U+02E9,,|131,,,,Chao tone letter 1-3-1,調値 131(超低中超低),
++TON195,tone_letter,˩˧˨,U+02E9 U+02E7 U+02E8,,|132,,,,Chao tone letter 1-3-2,調値 132(超低中低),
++TON196,tone_letter,˩˧˧,U+02E9 U+02E7 U+02E7,,|133,,,,Chao tone letter 1-3-3,調値 133(超低中中),
++TON197,tone_letter,˩˧˦,U+02E9 U+02E7 U+02E6,,|134,,,,Chao tone letter 1-3-4,調値 134(超低中高),
++TON198,tone_letter,˩˧˥,U+02E9 U+02E7 U+02E5,,|135,,,,Chao tone letter 1-3-5,調値 135(超低中超高),
++TON199,tone_letter,˩˦˩,U+02E9 U+02E6 U+02E9,,|141,,,,Chao tone letter 1-4-1,調値 141(超低高超低),
++TON200,tone_letter,˩˦˨,U+02E9 U+02E6 U+02E8,,|142,,,,Chao tone letter 1-4-2,調値 142(超低高低),
++TON201,tone_letter,˩˦˧,U+02E9 U+02E6 U+02E7,,|143,,,,Chao tone letter 1-4-3,調値 143(超低高中),
++TON202,tone_letter,˩˦˦,U+02E9 U+02E6 U+02E6,,|144,,,,Chao tone letter 1-4-4,調値 144(超低高高),
++TON203,tone_letter,˩˦˥,U+02E9 U+02E6 U+02E5,,|145,,,,Chao tone letter 1-4-5,調値 145(超低高超高),
++TON204,tone_letter,˩˥˩,U+02E9 U+02E5 U+02E9,,|151,,,,Chao tone letter 1-5-1,調値 151(超低超高超低),
++TON205,tone_letter,˩˥˨,U+02E9 U+02E5 U+02E8,,|152,,,,Chao tone letter 1-5-2,調値 152(超低超高低),
++TON206,tone_letter,˩˥˧,U+02E9 U+02E5 U+02E7,,|153,,,,Chao tone letter 1-5-3,調値 153(超低超高中),
++TON207,tone_letter,˩˥˦,U+02E9 U+02E5 U+02E6,,|154,,,,Chao tone letter 1-5-4,調値 154(超低超高高),
++TON208,tone_letter,˩˥˥,U+02E9 U+02E5 U+02E5,,|155,,,,Chao tone letter 1-5-5,調値 155(超低超高超高),
++TON209,tone_letter,˨˩˩,U+02E8 U+02E9 U+02E9,,|211,,,,Chao tone letter 2-1-1,調値 211(低超低超低),
++TON210,tone_letter,˨˩˨,U+02E8 U+02E9 U+02E8,,|212,,,,Chao tone letter 2-1-2,調値 212(低超低低),
++TON211,tone_letter,˨˩˧,U+02E8 U+02E9 U+02E7,,|213,,,,Chao tone letter 2-1-3,調値 213(低超低中),
++TON212,tone_letter,˨˩˦,U+02E8 U+02E9 U+02E6,,|214,,,,Chao tone letter 2-1-4,調値 214(低超低高),
++TON213,tone_letter,˨˩˥,U+02E8 U+02E9 U+02E5,,|215,,,,Chao tone letter 2-1-5,調値 215(低超低超高),
++TON214,tone_letter,˨˨˩,U+02E8 U+02E8 U+02E9,,|221,,,,Chao tone letter 2-2-1,調値 221(低低超低),
++TON215,tone_letter,˨˨˨,U+02E8 U+02E8 U+02E8,,|222,,,,Chao tone letter 2-2-2,調値 222(低低低),
++TON216,tone_letter,˨˨˧,U+02E8 U+02E8 U+02E7,,|223,,,,Chao tone letter 2-2-3,調値 223(低低中),
++TON217,tone_letter,˨˨˦,U+02E8 U+02E8 U+02E6,,|224,,,,Chao tone letter 2-2-4,調値 224(低低高),
++TON218,tone_letter,˨˨˥,U+02E8 U+02E8 U+02E5,,|225,,,,Chao tone letter 2-2-5,調値 225(低低超高),
++TON219,tone_letter,˨˧˩,U+02E8 U+02E7 U+02E9,,|231,,,,Chao tone letter 2-3-1,調値 231(低中超低),
++TON220,tone_letter,˨˧˨,U+02E8 U+02E7 U+02E8,,|232,,,,Chao tone letter 2-3-2,調値 232(低中低),
++TON221,tone_letter,˨˧˧,U+02E8 U+02E7 U+02E7,,|233,,,,Chao tone letter 2-3-3,調値 233(低中中),
++TON222,tone_letter,˨˧˦,U+02E8 U+02E7 U+02E6,,|234,,,,Chao tone letter 2-3-4,調値 234(低中高),
++TON223,tone_letter,˨˧˥,U+02E8 U+02E7 U+02E5,,|235,,,,Chao tone letter 2-3-5,調値 235(低中超高),
++TON224,tone_letter,˨˦˩,U+02E8 U+02E6 U+02E9,,|241,,,,Chao tone letter 2-4-1,調値 241(低高超低),
++TON225,tone_letter,˨˦˨,U+02E8 U+02E6 U+02E8,,|242,,,,Chao tone letter 2-4-2,調値 242(低高低),
++TON226,tone_letter,˨˦˧,U+02E8 U+02E6 U+02E7,,|243,,,,Chao tone letter 2-4-3,調値 243(低高中),
++TON227,tone_letter,˨˦˦,U+02E8 U+02E6 U+02E6,,|244,,,,Chao tone letter 2-4-4,調値 244(低高高),
++TON228,tone_letter,˨˦˥,U+02E8 U+02E6 U+02E5,,|245,,,,Chao tone letter 2-4-5,調値 245(低高超高),
++TON229,tone_letter,˨˥˩,U+02E8 U+02E5 U+02E9,,|251,,,,Chao tone letter 2-5-1,調値 251(低超高超低),
++TON230,tone_letter,˨˥˨,U+02E8 U+02E5 U+02E8,,|252,,,,Chao tone letter 2-5-2,調値 252(低超高低),
++TON231,tone_letter,˨˥˧,U+02E8 U+02E5 U+02E7,,|253,,,,Chao tone letter 2-5-3,調値 253(低超高中),
++TON232,tone_letter,˨˥˦,U+02E8 U+02E5 U+02E6,,|254,,,,Chao tone letter 2-5-4,調値 254(低超高高),
++TON233,tone_letter,˨˥˥,U+02E8 U+02E5 U+02E5,,|255,,,,Chao tone letter 2-5-5,調値 255(低超高超高),
++TON234,tone_letter,˧˩˩,U+02E7 U+02E9 U+02E9,,|311,,,,Chao tone letter 3-1-1,調値 311(中超低超低),
++TON235,tone_letter,˧˩˨,U+02E7 U+02E9 U+02E8,,|312,,,,Chao tone letter 3-1-2,調値 312(中超低低),
++TON236,tone_letter,˧˩˧,U+02E7 U+02E9 U+02E7,,|313,,,,Chao tone letter 3-1-3,調値 313(中超低中),
++TON237,tone_letter,˧˩˦,U+02E7 U+02E9 U+02E6,,|314,,,,Chao tone letter 3-1-4,調値 314(中超低高),
++TON238,tone_letter,˧˩˥,U+02E7 U+02E9 U+02E5,,|315,,,,Chao tone letter 3-1-5,調値 315(中超低超高),
++TON239,tone_letter,˧˨˩,U+02E7 U+02E8 U+02E9,,|321,,,,Chao tone letter 3-2-1,調値 321(中低超低),
++TON240,tone_letter,˧˨˨,U+02E7 U+02E8 U+02E8,,|322,,,,Chao tone letter 3-2-2,調値 322(中低低),
++TON241,tone_letter,˧˨˧,U+02E7 U+02E8 U+02E7,,|323,,,,Chao tone letter 3-2-3,調値 323(中低中),
++TON242,tone_letter,˧˨˦,U+02E7 U+02E8 U+02E6,,|324,,,,Chao tone letter 3-2-4,調値 324(中低高),
++TON243,tone_letter,˧˨˥,U+02E7 U+02E8 U+02E5,,|325,,,,Chao tone letter 3-2-5,調値 325(中低超高),
++TON244,tone_letter,˧˧˩,U+02E7 U+02E7 U+02E9,,|331,,,,Chao tone letter 3-3-1,調値 331(中中超低),
++TON245,tone_letter,˧˧˨,U+02E7 U+02E7 U+02E8,,|332,,,,Chao tone letter 3-3-2,調値 332(中中低),
++TON246,tone_letter,˧˧˧,U+02E7 U+02E7 U+02E7,,|333,,,,Chao tone letter 3-3-3,調値 333(中中中),
++TON247,tone_letter,˧˧˦,U+02E7 U+02E7 U+02E6,,|334,,,,Chao tone letter 3-3-4,調値 334(中中高),
++TON248,tone_letter,˧˧˥,U+02E7 U+02E7 U+02E5,,|335,,,,Chao tone letter 3-3-5,調値 335(中中超高),
++TON249,tone_letter,˧˦˩,U+02E7 U+02E6 U+02E9,,|341,,,,Chao tone letter 3-4-1,調値 341(中高超低),
++TON250,tone_letter,˧˦˨,U+02E7 U+02E6 U+02E8,,|342,,,,Chao tone letter 3-4-2,調値 342(中高低),
++TON251,tone_letter,˧˦˧,U+02E7 U+02E6 U+02E7,,|343,,,,Chao tone letter 3-4-3,調値 343(中高中),
++TON252,tone_letter,˧˦˦,U+02E7 U+02E6 U+02E6,,|344,,,,Chao tone letter 3-4-4,調値 344(中高高),
++TON253,tone_letter,˧˦˥,U+02E7 U+02E6 U+02E5,,|345,,,,Chao tone letter 3-4-5,調値 345(中高超高),
++TON254,tone_letter,˧˥˩,U+02E7 U+02E5 U+02E9,,|351,,,,Chao tone letter 3-5-1,調値 351(中超高超低),
++TON255,tone_letter,˧˥˨,U+02E7 U+02E5 U+02E8,,|352,,,,Chao tone letter 3-5-2,調値 352(中超高低),
++TON256,tone_letter,˧˥˧,U+02E7 U+02E5 U+02E7,,|353,,,,Chao tone letter 3-5-3,調値 353(中超高中),
++TON257,tone_letter,˧˥˦,U+02E7 U+02E5 U+02E6,,|354,,,,Chao tone letter 3-5-4,調値 354(中超高高),
++TON258,tone_letter,˧˥˥,U+02E7 U+02E5 U+02E5,,|355,,,,Chao tone letter 3-5-5,調値 355(中超高超高),
++TON259,tone_letter,˦˩˩,U+02E6 U+02E9 U+02E9,,|411,,,,Chao tone letter 4-1-1,調値 411(高超低超低),
++TON260,tone_letter,˦˩˨,U+02E6 U+02E9 U+02E8,,|412,,,,Chao tone letter 4-1-2,調値 412(高超低低),
++TON261,tone_letter,˦˩˧,U+02E6 U+02E9 U+02E7,,|413,,,,Chao tone letter 4-1-3,調値 413(高超低中),
++TON262,tone_letter,˦˩˦,U+02E6 U+02E9 U+02E6,,|414,,,,Chao tone letter 4-1-4,調値 414(高超低高),
++TON263,tone_letter,˦˩˥,U+02E6 U+02E9 U+02E5,,|415,,,,Chao tone letter 4-1-5,調値 415(高超低超高),
++TON264,tone_letter,˦˨˩,U+02E6 U+02E8 U+02E9,,|421,,,,Chao tone letter 4-2-1,調値 421(高低超低),
++TON265,tone_letter,˦˨˨,U+02E6 U+02E8 U+02E8,,|422,,,,Chao tone letter 4-2-2,調値 422(高低低),
++TON266,tone_letter,˦˨˧,U+02E6 U+02E8 U+02E7,,|423,,,,Chao tone letter 4-2-3,調値 423(高低中),
++TON267,tone_letter,˦˨˦,U+02E6 U+02E8 U+02E6,,|424,,,,Chao tone letter 4-2-4,調値 424(高低高),
++TON268,tone_letter,˦˨˥,U+02E6 U+02E8 U+02E5,,|425,,,,Chao tone letter 4-2-5,調値 425(高低超高),
++TON269,tone_letter,˦˧˩,U+02E6 U+02E7 U+02E9,,|431,,,,Chao tone letter 4-3-1,調値 431(高中超低),
++TON270,tone_letter,˦˧˨,U+02E6 U+02E7 U+02E8,,|432,,,,Chao tone letter 4-3-2,調値 432(高中低),
++TON271,tone_letter,˦˧˧,U+02E6 U+02E7 U+02E7,,|433,,,,Chao tone letter 4-3-3,調値 433(高中中),
++TON272,tone_letter,˦˧˦,U+02E6 U+02E7 U+02E6,,|434,,,,Chao tone letter 4-3-4,調値 434(高中高),
++TON273,tone_letter,˦˧˥,U+02E6 U+02E7 U+02E5,,|435,,,,Chao tone letter 4-3-5,調値 435(高中超高),
++TON274,tone_letter,˦˦˩,U+02E6 U+02E6 U+02E9,,|441,,,,Chao tone letter 4-4-1,調値 441(高高超低),
++TON275,tone_letter,˦˦˨,U+02E6 U+02E6 U+02E8,,|442,,,,Chao tone letter 4-4-2,調値 442(高高低),
++TON276,tone_letter,˦˦˧,U+02E6 U+02E6 U+02E7,,|443,,,,Chao tone letter 4-4-3,調値 443(高高中),
++TON277,tone_letter,˦˦˦,U+02E6 U+02E6 U+02E6,,|444,,,,Chao tone letter 4-4-4,調値 444(高高高),
++TON278,tone_letter,˦˦˥,U+02E6 U+02E6 U+02E5,,|445,,,,Chao tone letter 4-4-5,調値 445(高高超高),
++TON279,tone_letter,˦˥˩,U+02E6 U+02E5 U+02E9,,|451,,,,Chao tone letter 4-5-1,調値 451(高超高超低),
++TON280,tone_letter,˦˥˨,U+02E6 U+02E5 U+02E8,,|452,,,,Chao tone letter 4-5-2,調値 452(高超高低),
++TON281,tone_letter,˦˥˧,U+02E6 U+02E5 U+02E7,,|453,,,,Chao tone letter 4-5-3,調値 453(高超高中),
++TON282,tone_letter,˦˥˦,U+02E6 U+02E5 U+02E6,,|454,,,,Chao tone letter 4-5-4,調値 454(高超高高),
++TON283,tone_letter,˦˥˥,U+02E6 U+02E5 U+02E5,,|455,,,,Chao tone letter 4-5-5,調値 455(高超高超高),
++TON284,tone_letter,˥˩˩,U+02E5 U+02E9 U+02E9,,|511,,,,Chao tone letter 5-1-1,調値 511(超高超低超低),
++TON285,tone_letter,˥˩˨,U+02E5 U+02E9 U+02E8,,|512,,,,Chao tone letter 5-1-2,調値 512(超高超低低),
++TON286,tone_letter,˥˩˧,U+02E5 U+02E9 U+02E7,,|513,,,,Chao tone letter 5-1-3,調値 513(超高超低中),
++TON287,tone_letter,˥˩˦,U+02E5 U+02E9 U+02E6,,|514,,,,Chao tone letter 5-1-4,調値 514(超高超低高),
++TON288,tone_letter,˥˩˥,U+02E5 U+02E9 U+02E5,,|515,,,,Chao tone letter 5-1-5,調値 515(超高超低超高),
++TON289,tone_letter,˥˨˩,U+02E5 U+02E8 U+02E9,,|521,,,,Chao tone letter 5-2-1,調値 521(超高低超低),
++TON290,tone_letter,˥˨˨,U+02E5 U+02E8 U+02E8,,|522,,,,Chao tone letter 5-2-2,調値 522(超高低低),
++TON291,tone_letter,˥˨˧,U+02E5 U+02E8 U+02E7,,|523,,,,Chao tone letter 5-2-3,調値 523(超高低中),
++TON292,tone_letter,˥˨˦,U+02E5 U+02E8 U+02E6,,|524,,,,Chao tone letter 5-2-4,調値 524(超高低高),
++TON293,tone_letter,˥˨˥,U+02E5 U+02E8 U+02E5,,|525,,,,Chao tone letter 5-2-5,調値 525(超高低超高),
++TON294,tone_letter,˥˧˩,U+02E5 U+02E7 U+02E9,,|531,,,,Chao tone letter 5-3-1,調値 531(超高中超低),
++TON295,tone_letter,˥˧˨,U+02E5 U+02E7 U+02E8,,|532,,,,Chao tone letter 5-3-2,調値 532(超高中低),
++TON296,tone_letter,˥˧˧,U+02E5 U+02E7 U+02E7,,|533,,,,Chao tone letter 5-3-3,調値 533(超高中中),
++TON297,tone_letter,˥˧˦,U+02E5 U+02E7 U+02E6,,|534,,,,Chao tone letter 5-3-4,調値 534(超高中高),
++TON298,tone_letter,˥˧˥,U+02E5 U+02E7 U+02E5,,|535,,,,Chao tone letter 5-3-5,調値 535(超高中超高),
++TON299,tone_letter,˥˦˩,U+02E5 U+02E6 U+02E9,,|541,,,,Chao tone letter 5-4-1,調値 541(超高高超低),
++TON300,tone_letter,˥˦˨,U+02E5 U+02E6 U+02E8,,|542,,,,Chao tone letter 5-4-2,調値 542(超高高低),
++TON301,tone_letter,˥˦˧,U+02E5 U+02E6 U+02E7,,|543,,,,Chao tone letter 5-4-3,調値 543(超高高中),
++TON302,tone_letter,˥˦˦,U+02E5 U+02E6 U+02E6,,|544,,,,Chao tone letter 5-4-4,調値 544(超高高高),
++TON303,tone_letter,˥˦˥,U+02E5 U+02E6 U+02E5,,|545,,,,Chao tone letter 5-4-5,調値 545(超高高超高),
++TON304,tone_letter,˥˥˩,U+02E5 U+02E5 U+02E9,,|551,,,,Chao tone letter 5-5-1,調値 551(超高超高超低),
++TON305,tone_letter,˥˥˨,U+02E5 U+02E5 U+02E8,,|552,,,,Chao tone letter 5-5-2,調値 552(超高超高低),
++TON306,tone_letter,˥˥˧,U+02E5 U+02E5 U+02E7,,|553,,,,Chao tone letter 5-5-3,調値 553(超高超高中),
++TON307,tone_letter,˥˥˦,U+02E5 U+02E5 U+02E6,,|554,,,,Chao tone letter 5-5-4,調値 554(超高超高高),
++TON308,tone_letter,˥˥˥,U+02E5 U+02E5 U+02E5,,|555,,,,Chao tone letter 5-5-5,調値 555(超高超高超高),
++SUP309,superscript,⁰,U+2070,,^0,,,,superscript 0,上標數字 0,
++SUP310,superscript,¹,U+00B9,,^1,,,,superscript 1,上標數字 1,
++SUP311,superscript,²,U+00B2,,^2,,,,superscript 2,上標數字 2,
++SUP312,superscript,³,U+00B3,,^3,,,,superscript 3,上標數字 3,
++SUP313,superscript,⁴,U+2074,,^4,,,,superscript 4,上標數字 4,
++SUP314,superscript,⁵,U+2075,,^5,,,,superscript 5,上標數字 5,
++SUP315,superscript,⁶,U+2076,,^6,,,,superscript 6,上標數字 6,
++SUP316,superscript,⁷,U+2077,,^7,,,,superscript 7,上標數字 7,
++SUP317,superscript,⁸,U+2078,,^8,,,,superscript 8,上標數字 8,
++SUP318,superscript,⁹,U+2079,,^9,,,,superscript 9,上標數字 9,
++SUP319,superscript,⁰⁰,U+2070 U+2070,,^00,,,,superscript 00,上標數字 00,
++SUP320,superscript,⁰¹,U+2070 U+00B9,,^01,,,,superscript 01,上標數字 01,
++SUP321,superscript,⁰²,U+2070 U+00B2,,^02,,,,superscript 02,上標數字 02,
++SUP322,superscript,⁰³,U+2070 U+00B3,,^03,,,,superscript 03,上標數字 03,
++SUP323,superscript,⁰⁴,U+2070 U+2074,,^04,,,,superscript 04,上標數字 04,
++SUP324,superscript,⁰⁵,U+2070 U+2075,,^05,,,,superscript 05,上標數字 05,
++SUP325,superscript,⁰⁶,U+2070 U+2076,,^06,,,,superscript 06,上標數字 06,
++SUP326,superscript,⁰⁷,U+2070 U+2077,,^07,,,,superscript 07,上標數字 07,
++SUP327,superscript,⁰⁸,U+2070 U+2078,,^08,,,,superscript 08,上標數字 08,
++SUP328,superscript,⁰⁹,U+2070 U+2079,,^09,,,,superscript 09,上標數字 09,
++SUP329,superscript,¹⁰,U+00B9 U+2070,,^10,,,,superscript 10,上標數字 10,
++SUP330,superscript,¹¹,U+00B9 U+00B9,,^11,,,,superscript 11,上標數字 11,
++SUP331,superscript,¹²,U+00B9 U+00B2,,^12,,,,superscript 12,上標數字 12,
++SUP332,superscript,¹³,U+00B9 U+00B3,,^13,,,,superscript 13,上標數字 13,
++SUP333,superscript,¹⁴,U+00B9 U+2074,,^14,,,,superscript 14,上標數字 14,
++SUP334,superscript,¹⁵,U+00B9 U+2075,,^15,,,,superscript 15,上標數字 15,
++SUP335,superscript,¹⁶,U+00B9 U+2076,,^16,,,,superscript 16,上標數字 16,
++SUP336,superscript,¹⁷,U+00B9 U+2077,,^17,,,,superscript 17,上標數字 17,
++SUP337,superscript,¹⁸,U+00B9 U+2078,,^18,,,,superscript 18,上標數字 18,
++SUP338,superscript,¹⁹,U+00B9 U+2079,,^19,,,,superscript 19,上標數字 19,
++SUP339,superscript,²⁰,U+00B2 U+2070,,^20,,,,superscript 20,上標數字 20,
++SUP340,superscript,²¹,U+00B2 U+00B9,,^21,,,,superscript 21,上標數字 21,
++SUP341,superscript,²²,U+00B2 U+00B2,,^22,,,,superscript 22,上標數字 22,
++SUP342,superscript,²³,U+00B2 U+00B3,,^23,,,,superscript 23,上標數字 23,
++SUP343,superscript,²⁴,U+00B2 U+2074,,^24,,,,superscript 24,上標數字 24,
++SUP344,superscript,²⁵,U+00B2 U+2075,,^25,,,,superscript 25,上標數字 25,
++SUP345,superscript,²⁶,U+00B2 U+2076,,^26,,,,superscript 26,上標數字 26,
++SUP346,superscript,²⁷,U+00B2 U+2077,,^27,,,,superscript 27,上標數字 27,
++SUP347,superscript,²⁸,U+00B2 U+2078,,^28,,,,superscript 28,上標數字 28,
++SUP348,superscript,²⁹,U+00B2 U+2079,,^29,,,,superscript 29,上標數字 29,
++SUP349,superscript,³⁰,U+00B3 U+2070,,^30,,,,superscript 30,上標數字 30,
++SUP350,superscript,³¹,U+00B3 U+00B9,,^31,,,,superscript 31,上標數字 31,
++SUP351,superscript,³²,U+00B3 U+00B2,,^32,,,,superscript 32,上標數字 32,
++SUP352,superscript,³³,U+00B3 U+00B3,,^33,,,,superscript 33,上標數字 33,
++SUP353,superscript,³⁴,U+00B3 U+2074,,^34,,,,superscript 34,上標數字 34,
++SUP354,superscript,³⁵,U+00B3 U+2075,,^35,,,,superscript 35,上標數字 35,
++SUP355,superscript,³⁶,U+00B3 U+2076,,^36,,,,superscript 36,上標數字 36,
++SUP356,superscript,³⁷,U+00B3 U+2077,,^37,,,,superscript 37,上標數字 37,
++SUP357,superscript,³⁸,U+00B3 U+2078,,^38,,,,superscript 38,上標數字 38,
++SUP358,superscript,³⁹,U+00B3 U+2079,,^39,,,,superscript 39,上標數字 39,
++SUP359,superscript,⁴⁰,U+2074 U+2070,,^40,,,,superscript 40,上標數字 40,
++SUP360,superscript,⁴¹,U+2074 U+00B9,,^41,,,,superscript 41,上標數字 41,
++SUP361,superscript,⁴²,U+2074 U+00B2,,^42,,,,superscript 42,上標數字 42,
++SUP362,superscript,⁴³,U+2074 U+00B3,,^43,,,,superscript 43,上標數字 43,
++SUP363,superscript,⁴⁴,U+2074 U+2074,,^44,,,,superscript 44,上標數字 44,
++SUP364,superscript,⁴⁵,U+2074 U+2075,,^45,,,,superscript 45,上標數字 45,
++SUP365,superscript,⁴⁶,U+2074 U+2076,,^46,,,,superscript 46,上標數字 46,
++SUP366,superscript,⁴⁷,U+2074 U+2077,,^47,,,,superscript 47,上標數字 47,
++SUP367,superscript,⁴⁸,U+2074 U+2078,,^48,,,,superscript 48,上標數字 48,
++SUP368,superscript,⁴⁹,U+2074 U+2079,,^49,,,,superscript 49,上標數字 49,
++SUP369,superscript,⁵⁰,U+2075 U+2070,,^50,,,,superscript 50,上標數字 50,
++SUP370,superscript,⁵¹,U+2075 U+00B9,,^51,,,,superscript 51,上標數字 51,
++SUP371,superscript,⁵²,U+2075 U+00B2,,^52,,,,superscript 52,上標數字 52,
++SUP372,superscript,⁵³,U+2075 U+00B3,,^53,,,,superscript 53,上標數字 53,
++SUP373,superscript,⁵⁴,U+2075 U+2074,,^54,,,,superscript 54,上標數字 54,
++SUP374,superscript,⁵⁵,U+2075 U+2075,,^55,,,,superscript 55,上標數字 55,
++SUP375,superscript,⁵⁶,U+2075 U+2076,,^56,,,,superscript 56,上標數字 56,
++SUP376,superscript,⁵⁷,U+2075 U+2077,,^57,,,,superscript 57,上標數字 57,
++SUP377,superscript,⁵⁸,U+2075 U+2078,,^58,,,,superscript 58,上標數字 58,
++SUP378,superscript,⁵⁹,U+2075 U+2079,,^59,,,,superscript 59,上標數字 59,
++SUP379,superscript,⁶⁰,U+2076 U+2070,,^60,,,,superscript 60,上標數字 60,
++SUP380,superscript,⁶¹,U+2076 U+00B9,,^61,,,,superscript 61,上標數字 61,
++SUP381,superscript,⁶²,U+2076 U+00B2,,^62,,,,superscript 62,上標數字 62,
++SUP382,superscript,⁶³,U+2076 U+00B3,,^63,,,,superscript 63,上標數字 63,
++SUP383,superscript,⁶⁴,U+2076 U+2074,,^64,,,,superscript 64,上標數字 64,
++SUP384,superscript,⁶⁵,U+2076 U+2075,,^65,,,,superscript 65,上標數字 65,
++SUP385,superscript,⁶⁶,U+2076 U+2076,,^66,,,,superscript 66,上標數字 66,
++SUP386,superscript,⁶⁷,U+2076 U+2077,,^67,,,,superscript 67,上標數字 67,
++SUP387,superscript,⁶⁸,U+2076 U+2078,,^68,,,,superscript 68,上標數字 68,
++SUP388,superscript,⁶⁹,U+2076 U+2079,,^69,,,,superscript 69,上標數字 69,
++SUP389,superscript,⁷⁰,U+2077 U+2070,,^70,,,,superscript 70,上標數字 70,
++SUP390,superscript,⁷¹,U+2077 U+00B9,,^71,,,,superscript 71,上標數字 71,
++SUP391,superscript,⁷²,U+2077 U+00B2,,^72,,,,superscript 72,上標數字 72,
++SUP392,superscript,⁷³,U+2077 U+00B3,,^73,,,,superscript 73,上標數字 73,
++SUP393,superscript,⁷⁴,U+2077 U+2074,,^74,,,,superscript 74,上標數字 74,
++SUP394,superscript,⁷⁵,U+2077 U+2075,,^75,,,,superscript 75,上標數字 75,
++SUP395,superscript,⁷⁶,U+2077 U+2076,,^76,,,,superscript 76,上標數字 76,
++SUP396,superscript,⁷⁷,U+2077 U+2077,,^77,,,,superscript 77,上標數字 77,
++SUP397,superscript,⁷⁸,U+2077 U+2078,,^78,,,,superscript 78,上標數字 78,
++SUP398,superscript,⁷⁹,U+2077 U+2079,,^79,,,,superscript 79,上標數字 79,
++SUP399,superscript,⁸⁰,U+2078 U+2070,,^80,,,,superscript 80,上標數字 80,
++SUP400,superscript,⁸¹,U+2078 U+00B9,,^81,,,,superscript 81,上標數字 81,
++SUP401,superscript,⁸²,U+2078 U+00B2,,^82,,,,superscript 82,上標數字 82,
++SUP402,superscript,⁸³,U+2078 U+00B3,,^83,,,,superscript 83,上標數字 83,
++SUP403,superscript,⁸⁴,U+2078 U+2074,,^84,,,,superscript 84,上標數字 84,
++SUP404,superscript,⁸⁵,U+2078 U+2075,,^85,,,,superscript 85,上標數字 85,
++SUP405,superscript,⁸⁶,U+2078 U+2076,,^86,,,,superscript 86,上標數字 86,
++SUP406,superscript,⁸⁷,U+2078 U+2077,,^87,,,,superscript 87,上標數字 87,
++SUP407,superscript,⁸⁸,U+2078 U+2078,,^88,,,,superscript 88,上標數字 88,
++SUP408,superscript,⁸⁹,U+2078 U+2079,,^89,,,,superscript 89,上標數字 89,
++SUP409,superscript,⁹⁰,U+2079 U+2070,,^90,,,,superscript 90,上標數字 90,
++SUP410,superscript,⁹¹,U+2079 U+00B9,,^91,,,,superscript 91,上標數字 91,
++SUP411,superscript,⁹²,U+2079 U+00B2,,^92,,,,superscript 92,上標數字 92,
++SUP412,superscript,⁹³,U+2079 U+00B3,,^93,,,,superscript 93,上標數字 93,
++SUP413,superscript,⁹⁴,U+2079 U+2074,,^94,,,,superscript 94,上標數字 94,
++SUP414,superscript,⁹⁵,U+2079 U+2075,,^95,,,,superscript 95,上標數字 95,
++SUP415,superscript,⁹⁶,U+2079 U+2076,,^96,,,,superscript 96,上標數字 96,
++SUP416,superscript,⁹⁷,U+2079 U+2077,,^97,,,,superscript 97,上標數字 97,
++SUP417,superscript,⁹⁸,U+2079 U+2078,,^98,,,,superscript 98,上標數字 98,
++SUP418,superscript,⁹⁹,U+2079 U+2079,,^99,,,,superscript 99,上標數字 99,
++SUP419,superscript,¹¹¹,U+00B9 U+00B9 U+00B9,,^111,,,,superscript 111,上標數字 111,
++SUP420,superscript,¹¹²,U+00B9 U+00B9 U+00B2,,^112,,,,superscript 112,上標數字 112,
++SUP421,superscript,¹¹³,U+00B9 U+00B9 U+00B3,,^113,,,,superscript 113,上標數字 113,
++SUP422,superscript,¹¹⁴,U+00B9 U+00B9 U+2074,,^114,,,,superscript 114,上標數字 114,
++SUP423,superscript,¹¹⁵,U+00B9 U+00B9 U+2075,,^115,,,,superscript 115,上標數字 115,
++SUP424,superscript,¹²¹,U+00B9 U+00B2 U+00B9,,^121,,,,superscript 121,上標數字 121,
++SUP425,superscript,¹²²,U+00B9 U+00B2 U+00B2,,^122,,,,superscript 122,上標數字 122,
++SUP426,superscript,¹²³,U+00B9 U+00B2 U+00B3,,^123,,,,superscript 123,上標數字 123,
++SUP427,superscript,¹²⁴,U+00B9 U+00B2 U+2074,,^124,,,,superscript 124,上標數字 124,
++SUP428,superscript,¹²⁵,U+00B9 U+00B2 U+2075,,^125,,,,superscript 125,上標數字 125,
++SUP429,superscript,¹³¹,U+00B9 U+00B3 U+00B9,,^131,,,,superscript 131,上標數字 131,
++SUP430,superscript,¹³²,U+00B9 U+00B3 U+00B2,,^132,,,,superscript 132,上標數字 132,
++SUP431,superscript,¹³³,U+00B9 U+00B3 U+00B3,,^133,,,,superscript 133,上標數字 133,
++SUP432,superscript,¹³⁴,U+00B9 U+00B3 U+2074,,^134,,,,superscript 134,上標數字 134,
++SUP433,superscript,¹³⁵,U+00B9 U+00B3 U+2075,,^135,,,,superscript 135,上標數字 135,
++SUP434,superscript,¹⁴¹,U+00B9 U+2074 U+00B9,,^141,,,,superscript 141,上標數字 141,
++SUP435,superscript,¹⁴²,U+00B9 U+2074 U+00B2,,^142,,,,superscript 142,上標數字 142,
++SUP436,superscript,¹⁴³,U+00B9 U+2074 U+00B3,,^143,,,,superscript 143,上標數字 143,
++SUP437,superscript,¹⁴⁴,U+00B9 U+2074 U+2074,,^144,,,,superscript 144,上標數字 144,
++SUP438,superscript,¹⁴⁵,U+00B9 U+2074 U+2075,,^145,,,,superscript 145,上標數字 145,
++SUP439,superscript,¹⁵¹,U+00B9 U+2075 U+00B9,,^151,,,,superscript 151,上標數字 151,
++SUP440,superscript,¹⁵²,U+00B9 U+2075 U+00B2,,^152,,,,superscript 152,上標數字 152,
++SUP441,superscript,¹⁵³,U+00B9 U+2075 U+00B3,,^153,,,,superscript 153,上標數字 153,
++SUP442,superscript,¹⁵⁴,U+00B9 U+2075 U+2074,,^154,,,,superscript 154,上標數字 154,
++SUP443,superscript,¹⁵⁵,U+00B9 U+2075 U+2075,,^155,,,,superscript 155,上標數字 155,
++SUP444,superscript,²¹¹,U+00B2 U+00B9 U+00B9,,^211,,,,superscript 211,上標數字 211,
++SUP445,superscript,²¹²,U+00B2 U+00B9 U+00B2,,^212,,,,superscript 212,上標數字 212,
++SUP446,superscript,²¹³,U+00B2 U+00B9 U+00B3,,^213,,,,superscript 213,上標數字 213,
++SUP447,superscript,²¹⁴,U+00B2 U+00B9 U+2074,,^214,,,,superscript 214,上標數字 214,
++SUP448,superscript,²¹⁵,U+00B2 U+00B9 U+2075,,^215,,,,superscript 215,上標數字 215,
++SUP449,superscript,²²¹,U+00B2 U+00B2 U+00B9,,^221,,,,superscript 221,上標數字 221,
++SUP450,superscript,²²²,U+00B2 U+00B2 U+00B2,,^222,,,,superscript 222,上標數字 222,
++SUP451,superscript,²²³,U+00B2 U+00B2 U+00B3,,^223,,,,superscript 223,上標數字 223,
++SUP452,superscript,²²⁴,U+00B2 U+00B2 U+2074,,^224,,,,superscript 224,上標數字 224,
++SUP453,superscript,²²⁵,U+00B2 U+00B2 U+2075,,^225,,,,superscript 225,上標數字 225,
++SUP454,superscript,²³¹,U+00B2 U+00B3 U+00B9,,^231,,,,superscript 231,上標數字 231,
++SUP455,superscript,²³²,U+00B2 U+00B3 U+00B2,,^232,,,,superscript 232,上標數字 232,
++SUP456,superscript,²³³,U+00B2 U+00B3 U+00B3,,^233,,,,superscript 233,上標數字 233,
++SUP457,superscript,²³⁴,U+00B2 U+00B3 U+2074,,^234,,,,superscript 234,上標數字 234,
++SUP458,superscript,²³⁵,U+00B2 U+00B3 U+2075,,^235,,,,superscript 235,上標數字 235,
++SUP459,superscript,²⁴¹,U+00B2 U+2074 U+00B9,,^241,,,,superscript 241,上標數字 241,
++SUP460,superscript,²⁴²,U+00B2 U+2074 U+00B2,,^242,,,,superscript 242,上標數字 242,
++SUP461,superscript,²⁴³,U+00B2 U+2074 U+00B3,,^243,,,,superscript 243,上標數字 243,
++SUP462,superscript,²⁴⁴,U+00B2 U+2074 U+2074,,^244,,,,superscript 244,上標數字 244,
++SUP463,superscript,²⁴⁵,U+00B2 U+2074 U+2075,,^245,,,,superscript 245,上標數字 245,
++SUP464,superscript,²⁵¹,U+00B2 U+2075 U+00B9,,^251,,,,superscript 251,上標數字 251,
++SUP465,superscript,²⁵²,U+00B2 U+2075 U+00B2,,^252,,,,superscript 252,上標數字 252,
++SUP466,superscript,²⁵³,U+00B2 U+2075 U+00B3,,^253,,,,superscript 253,上標數字 253,
++SUP467,superscript,²⁵⁴,U+00B2 U+2075 U+2074,,^254,,,,superscript 254,上標數字 254,
++SUP468,superscript,²⁵⁵,U+00B2 U+2075 U+2075,,^255,,,,superscript 255,上標數字 255,
++SUP469,superscript,³¹¹,U+00B3 U+00B9 U+00B9,,^311,,,,superscript 311,上標數字 311,
++SUP470,superscript,³¹²,U+00B3 U+00B9 U+00B2,,^312,,,,superscript 312,上標數字 312,
++SUP471,superscript,³¹³,U+00B3 U+00B9 U+00B3,,^313,,,,superscript 313,上標數字 313,
++SUP472,superscript,³¹⁴,U+00B3 U+00B9 U+2074,,^314,,,,superscript 314,上標數字 314,
++SUP473,superscript,³¹⁵,U+00B3 U+00B9 U+2075,,^315,,,,superscript 315,上標數字 315,
++SUP474,superscript,³²¹,U+00B3 U+00B2 U+00B9,,^321,,,,superscript 321,上標數字 321,
++SUP475,superscript,³²²,U+00B3 U+00B2 U+00B2,,^322,,,,superscript 322,上標數字 322,
++SUP476,superscript,³²³,U+00B3 U+00B2 U+00B3,,^323,,,,superscript 323,上標數字 323,
++SUP477,superscript,³²⁴,U+00B3 U+00B2 U+2074,,^324,,,,superscript 324,上標數字 324,
++SUP478,superscript,³²⁵,U+00B3 U+00B2 U+2075,,^325,,,,superscript 325,上標數字 325,
++SUP479,superscript,³³¹,U+00B3 U+00B3 U+00B9,,^331,,,,superscript 331,上標數字 331,
++SUP480,superscript,³³²,U+00B3 U+00B3 U+00B2,,^332,,,,superscript 332,上標數字 332,
++SUP481,superscript,³³³,U+00B3 U+00B3 U+00B3,,^333,,,,superscript 333,上標數字 333,
++SUP482,superscript,³³⁴,U+00B3 U+00B3 U+2074,,^334,,,,superscript 334,上標數字 334,
++SUP483,superscript,³³⁵,U+00B3 U+00B3 U+2075,,^335,,,,superscript 335,上標數字 335,
++SUP484,superscript,³⁴¹,U+00B3 U+2074 U+00B9,,^341,,,,superscript 341,上標數字 341,
++SUP485,superscript,³⁴²,U+00B3 U+2074 U+00B2,,^342,,,,superscript 342,上標數字 342,
++SUP486,superscript,³⁴³,U+00B3 U+2074 U+00B3,,^343,,,,superscript 343,上標數字 343,
++SUP487,superscript,³⁴⁴,U+00B3 U+2074 U+2074,,^344,,,,superscript 344,上標數字 344,
++SUP488,superscript,³⁴⁵,U+00B3 U+2074 U+2075,,^345,,,,superscript 345,上標數字 345,
++SUP489,superscript,³⁵¹,U+00B3 U+2075 U+00B9,,^351,,,,superscript 351,上標數字 351,
++SUP490,superscript,³⁵²,U+00B3 U+2075 U+00B2,,^352,,,,superscript 352,上標數字 352,
++SUP491,superscript,³⁵³,U+00B3 U+2075 U+00B3,,^353,,,,superscript 353,上標數字 353,
++SUP492,superscript,³⁵⁴,U+00B3 U+2075 U+2074,,^354,,,,superscript 354,上標數字 354,
++SUP493,superscript,³⁵⁵,U+00B3 U+2075 U+2075,,^355,,,,superscript 355,上標數字 355,
++SUP494,superscript,⁴¹¹,U+2074 U+00B9 U+00B9,,^411,,,,superscript 411,上標數字 411,
++SUP495,superscript,⁴¹²,U+2074 U+00B9 U+00B2,,^412,,,,superscript 412,上標數字 412,
++SUP496,superscript,⁴¹³,U+2074 U+00B9 U+00B3,,^413,,,,superscript 413,上標數字 413,
++SUP497,superscript,⁴¹⁴,U+2074 U+00B9 U+2074,,^414,,,,superscript 414,上標數字 414,
++SUP498,superscript,⁴¹⁵,U+2074 U+00B9 U+2075,,^415,,,,superscript 415,上標數字 415,
++SUP499,superscript,⁴²¹,U+2074 U+00B2 U+00B9,,^421,,,,superscript 421,上標數字 421,
++SUP500,superscript,⁴²²,U+2074 U+00B2 U+00B2,,^422,,,,superscript 422,上標數字 422,
++SUP501,superscript,⁴²³,U+2074 U+00B2 U+00B3,,^423,,,,superscript 423,上標數字 423,
++SUP502,superscript,⁴²⁴,U+2074 U+00B2 U+2074,,^424,,,,superscript 424,上標數字 424,
++SUP503,superscript,⁴²⁵,U+2074 U+00B2 U+2075,,^425,,,,superscript 425,上標數字 425,
++SUP504,superscript,⁴³¹,U+2074 U+00B3 U+00B9,,^431,,,,superscript 431,上標數字 431,
++SUP505,superscript,⁴³²,U+2074 U+00B3 U+00B2,,^432,,,,superscript 432,上標數字 432,
++SUP506,superscript,⁴³³,U+2074 U+00B3 U+00B3,,^433,,,,superscript 433,上標數字 433,
++SUP507,superscript,⁴³⁴,U+2074 U+00B3 U+2074,,^434,,,,superscript 434,上標數字 434,
++SUP508,superscript,⁴³⁵,U+2074 U+00B3 U+2075,,^435,,,,superscript 435,上標數字 435,
++SUP509,superscript,⁴⁴¹,U+2074 U+2074 U+00B9,,^441,,,,superscript 441,上標數字 441,
++SUP510,superscript,⁴⁴²,U+2074 U+2074 U+00B2,,^442,,,,superscript 442,上標數字 442,
++SUP511,superscript,⁴⁴³,U+2074 U+2074 U+00B3,,^443,,,,superscript 443,上標數字 443,
++SUP512,superscript,⁴⁴⁴,U+2074 U+2074 U+2074,,^444,,,,superscript 444,上標數字 444,
++SUP513,superscript,⁴⁴⁵,U+2074 U+2074 U+2075,,^445,,,,superscript 445,上標數字 445,
++SUP514,superscript,⁴⁵¹,U+2074 U+2075 U+00B9,,^451,,,,superscript 451,上標數字 451,
++SUP515,superscript,⁴⁵²,U+2074 U+2075 U+00B2,,^452,,,,superscript 452,上標數字 452,
++SUP516,superscript,⁴⁵³,U+2074 U+2075 U+00B3,,^453,,,,superscript 453,上標數字 453,
++SUP517,superscript,⁴⁵⁴,U+2074 U+2075 U+2074,,^454,,,,superscript 454,上標數字 454,
++SUP518,superscript,⁴⁵⁵,U+2074 U+2075 U+2075,,^455,,,,superscript 455,上標數字 455,
++SUP519,superscript,⁵¹¹,U+2075 U+00B9 U+00B9,,^511,,,,superscript 511,上標數字 511,
++SUP520,superscript,⁵¹²,U+2075 U+00B9 U+00B2,,^512,,,,superscript 512,上標數字 512,
++SUP521,superscript,⁵¹³,U+2075 U+00B9 U+00B3,,^513,,,,superscript 513,上標數字 513,
++SUP522,superscript,⁵¹⁴,U+2075 U+00B9 U+2074,,^514,,,,superscript 514,上標數字 514,
++SUP523,superscript,⁵¹⁵,U+2075 U+00B9 U+2075,,^515,,,,superscript 515,上標數字 515,
++SUP524,superscript,⁵²¹,U+2075 U+00B2 U+00B9,,^521,,,,superscript 521,上標數字 521,
++SUP525,superscript,⁵²²,U+2075 U+00B2 U+00B2,,^522,,,,superscript 522,上標數字 522,
++SUP526,superscript,⁵²³,U+2075 U+00B2 U+00B3,,^523,,,,superscript 523,上標數字 523,
++SUP527,superscript,⁵²⁴,U+2075 U+00B2 U+2074,,^524,,,,superscript 524,上標數字 524,
++SUP528,superscript,⁵²⁵,U+2075 U+00B2 U+2075,,^525,,,,superscript 525,上標數字 525,
++SUP529,superscript,⁵³¹,U+2075 U+00B3 U+00B9,,^531,,,,superscript 531,上標數字 531,
++SUP530,superscript,⁵³²,U+2075 U+00B3 U+00B2,,^532,,,,superscript 532,上標數字 532,
++SUP531,superscript,⁵³³,U+2075 U+00B3 U+00B3,,^533,,,,superscript 533,上標數字 533,
++SUP532,superscript,⁵³⁴,U+2075 U+00B3 U+2074,,^534,,,,superscript 534,上標數字 534,
++SUP533,superscript,⁵³⁵,U+2075 U+00B3 U+2075,,^535,,,,superscript 535,上標數字 535,
++SUP534,superscript,⁵⁴¹,U+2075 U+2074 U+00B9,,^541,,,,superscript 541,上標數字 541,
++SUP535,superscript,⁵⁴²,U+2075 U+2074 U+00B2,,^542,,,,superscript 542,上標數字 542,
++SUP536,superscript,⁵⁴³,U+2075 U+2074 U+00B3,,^543,,,,superscript 543,上標數字 543,
++SUP537,superscript,⁵⁴⁴,U+2075 U+2074 U+2074,,^544,,,,superscript 544,上標數字 544,
++SUP538,superscript,⁵⁴⁵,U+2075 U+2074 U+2075,,^545,,,,superscript 545,上標數字 545,
++SUP539,superscript,⁵⁵¹,U+2075 U+2075 U+00B9,,^551,,,,superscript 551,上標數字 551,
++SUP540,superscript,⁵⁵²,U+2075 U+2075 U+00B2,,^552,,,,superscript 552,上標數字 552,
++SUP541,superscript,⁵⁵³,U+2075 U+2075 U+00B3,,^553,,,,superscript 553,上標數字 553,
++SUP542,superscript,⁵⁵⁴,U+2075 U+2075 U+2074,,^554,,,,superscript 554,上標數字 554,
++SUP543,superscript,⁵⁵⁵,U+2075 U+2075 U+2075,,^555,,,,superscript 555,上標數字 555,
++TON544,tone_other,ꜜ,U+A71C,<D>,dstep,,,\|d,downstep,降階,
++TON545,tone_other,ꜛ,U+A71B,<U>,ustep,,,\|u,upstep,升階,
++TON546,tone_other,↗,U+2197,<R>,grise,,,\NE,global rise,全升,
++TON547,tone_other,↘,U+2198,<F>,gfall,,,\SE,global fall,全降,
++TIE548,tie,◌͡◌,U+0361,_,tie,,,\li,tie bar (above),連結弧（上）,combining;塞擦/雙重調音
++TIE549,tie,◌͜◌,U+035C,,tieb,,,\LI,tie bar (below),連結弧（下）,combining
+diff --git a/master/build_master.py b/master/build_master.py
+index 46afd49..0f3eb4f 100644
+--- a/master/build_master.py
++++ b/master/build_master.py
+@@ -98,8 +98,6 @@ PRAAT = {
+ PRAAT_BY_CODE = {
+     'dev':r'\0v','voi':r'\vv','asp':r'\^h','rou+':r'\3v','rou-':r'\cv','adv':r'\+v','ret':r'\-v','cen':r'\:^','mce':r'\x^','syl':r'\|v','nsy':r'\nv','rho':r'\hr','bre':r'\:v','cre':r'\~v','lgl':r'\mv','lab':r'\^w','pzd':r'\^j','vzd':r'\^G','pha':r'\^9','vph':r'\~/','rai':r'\T^','low':r'\Tv','atr':r'\T(','rtr':r'\T)','dnt':r'\Nv','api':r'\Uv','lam':r'\Dv','nas':r'\~^','nrl':r'\^n','lrl':r'\^l','nor':r'\cn',
+     'str1':r"\'1",'str2':r"\'2",'lng':r'\:f','hln':r'\.f','xsh':r'\N^','grp1':'','grp2':'||','sbr':'.','lnk':r'\_u',
+-    'td5':r"\''",'td4':r"\'^",'td3':r'\-^','td2':r'\`^','td1':r'\``','tdr':r'\v^','tdf':r'\^^',
+-    'tl5':r'\-5','tl4':r'\-4','tl3':r'\-3','tl2':r'\-2','tl1':r'\-1','tl15':'','tl51':'',
+     'dstep':r'\|d','ustep':r'\|u','grise':r'\NE','gfall':r'\SE',
+     'tie':r'\li','tieb':r'\LI',
+ }
+@@ -324,22 +322,31 @@ for en, zh, code, xs, c in SUPRA:
+     add('suprasegmental', disp, xs, c, '', '', en, zh, codepoint='U+%04X' % code)
+ 
+ # ---- 5.7 聲調 ----
+-# 位準: (en, zh, diac_cp, diac_xsampa, td, letter_cp, letter_xsampa, tl)
+-LEVEL = [
+-    ('extra-high','超高',0x030B,'_T','td5',0x02E5,'<T>','tl5'),
+-    ('high','高',0x0301,'_H','td4',0x02E6,'<H>','tl4'),
+-    ('mid','中',0x0304,'_M','td3',0x02E7,'<M>','tl3'),
+-    ('low','低',0x0300,'_L','td2',0x02E8,'<L>','tl2'),
+-    ('extra-low','超低',0x030F,'_B','td1',0x02E9,'<B>','tl1'),
+-]
+-for en, zh, dcp, dxs, td, lcp, lxs, tl in LEVEL:
+-    add('tone_diacritic', '\u25CC'+chr(dcp), dxs, td, '', '', f'{en} tone (diacritic)', f'{zh}調（調符）', codepoint='U+%04X' % dcp)
+-    add('tone_letter', chr(lcp), lxs, tl, '', '', f'{en} tone letter', f'{zh}調値字母', codepoint='U+%04X' % lcp)
+-# 連調 (調符二者 + 調値字母例)
+-add('tone_diacritic', '\u25CC'+chr(0x030C), '_R', 'tdr', '', '', 'rising tone (diacritic)', '升調（調符）', codepoint='U+030C')
+-add('tone_diacritic', '\u25CC'+chr(0x0302), '_F', 'tdf', '', '', 'falling tone (diacritic)', '降調（調符）', codepoint='U+0302')
+-add('tone_letter', chr(0x02E9)+chr(0x02E5), '', 'tl15', '', '', 'rising tone letter (example)', '升調値字母（例）', codepoint='U+02E9 U+02E5')
+-add('tone_letter', chr(0x02E5)+chr(0x02E9), '', 'tl51', '', '', 'falling tone letter (example)', '降調値字母（例）', codepoint='U+02E5 U+02E9')
++# 組合調符沿用 X-SAMPA _T/_H/_M/_L/_B(不另設描述式碼,見 OTHERTONE 註)。
++# 調値字母(Chao staff letter): 碼 = '|' + 1~3 位數字, 每位 1-5 逐位映射 ˩˨˧˦˥。
++CHAO = {1: 0x02E9, 2: 0x02E8, 3: 0x02E7, 4: 0x02E6, 5: 0x02E5}  # 1..5 -> ˩˨˧˦˥
++CHAO_ZH = {1:'超低',2:'低',3:'中',4:'高',5:'超高'}
++import itertools
++for n in (1, 2, 3):
++    for combo in itertools.product('12345', repeat=n):
++        digits = ''.join(combo)
++        letters = ''.join(chr(CHAO[int(d)]) for d in combo)
++        code = '|' + digits
++        cps = ' '.join('U+%04X' % CHAO[int(d)] for d in combo)
++        zh = ''.join(CHAO_ZH[int(d)] for d in combo)
++        en = 'Chao tone letter ' + '-'.join(combo)
++        add('tone_letter', letters, '', code, '', '', en, f'調値 {digits}({zh})', codepoint=cps)
++
++# 上標數字(superscript): 碼 = '^' + 數字。1~2 位允許 0-9;3 位限 1-5(調值連調語境)。
++SUP = {0:0x2070,1:0x00B9,2:0x00B2,3:0x00B3,4:0x2074,5:0x2075,6:0x2076,7:0x2077,8:0x2078,9:0x2079}
++for n in (1, 2, 3):
++    pool = '0123456789' if n < 3 else '12345'
++    for combo in itertools.product(pool, repeat=n):
++        digits = ''.join(combo)
++        sup = ''.join(chr(SUP[int(d)]) for d in combo)
++        cps = ' '.join('U+%04X' % SUP[int(d)] for d in combo)
++        add('superscript', sup, '', '^' + digits, '', '', f'superscript {digits}', f'上標數字 {digits}', codepoint=cps)
++
+ # 其他調號
+ OTHERTONE = [
+     ('downstep','降階',0xA71C,'<D>','dstep'),
+diff --git a/rime/gen_rime.py b/rime/gen_rime.py
+index 4e4acab..d96b91b 100644
+--- a/rime/gen_rime.py
++++ b/rime/gen_rime.py
+@@ -5,7 +5,7 @@
+ 語言參數目前影響方案名稱/說明(i18n 載體);碼不隨語言變。"""
+ import csv, argparse, sys
+ 
+-VERSION = '0.1.0'
++VERSION = '0.1.1'
+ LAYER_WEIGHT = {'xsampa': 500, 'mnemonic': 400, 'descriptive': 300, 'praat': 200}
+ 
+ def parse_codepoints(cp_field):
+@@ -15,6 +15,10 @@ def parse_codepoints(cp_field):
+ def load(master_path):
+     rows = list(csv.DictReader(open(master_path, encoding='utf-8-sig')))
+     entries = []  # (output_text, code, weight, layer, row_id)
++    # V3-a: 既是碼又是標點者,補「指向自己」的最高權重候選,使字面標點排第一。
++    # 先加入,dedupe 保留先見者(即高權重版),覆蓋碼表中同 (out,code) 的較低權重列。
++    for ch in ('.', '|', '\\'):
++        entries.append((ch, ch, 999, 'punct_self', 'PUNCT'))
+     for r in rows:
+         out = parse_codepoints(r['codepoint'])
+         for layer in ('xsampa', 'descriptive', 'praat'):
+@@ -118,14 +122,33 @@ translator:
+ menu:
+   page_size: 9
+ 
++# numpad 綁為選字鍵(主鍵盤數字列送字面數字供 | / ^ 碼使用) (POC 驗證點 7)
+ key_binder:
+   import_preset: default
+-
++  bindings:
++    - {{ when: has_menu, accept: KP_1, send: 1 }}
++    - {{ when: has_menu, accept: KP_2, send: 2 }}
++    - {{ when: has_menu, accept: KP_3, send: 3 }}
++    - {{ when: has_menu, accept: KP_4, send: 4 }}
++    - {{ when: has_menu, accept: KP_5, send: 5 }}
++    - {{ when: has_menu, accept: KP_6, send: 6 }}
++    - {{ when: has_menu, accept: KP_7, send: 7 }}
++    - {{ when: has_menu, accept: KP_8, send: 8 }}
++    - {{ when: has_menu, accept: KP_9, send: 9 }}
++
++# 自訂標點:僅保留少數「非碼」標點即時上屏;. | \\ 等已在 alphabet 中者不列入,
++# 讓 speller 於組字時取用(修 V3-b: \\t. 尾端 . 不再延遲) (POC 驗證點 3)
+ punctuator:
+-  import_preset: default  # 在 alphabet 中的標點於組字時視為碼 (POC 驗證點 3)
++  half_shape:
++    ",": {{commit: ", "}}
++    "?": {{commit: "? "}}
++    "!": {{commit: "! "}}
+ 
+ recognizer:
+   import_preset: default
++  patterns:
++    # 保證以 \\ 起首的 Praat 碼(含 \\t. 等含標點者)全段落入 speller
++    ipa_code: "^\\\\[a-zA-Z0-9].*$"
+ """
+ 
+ CUSTOM = """# default.custom.yaml — 將 IPA 方案掛入方案清單
+diff --git a/rime/ipa.dict.yaml b/rime/ipa.dict.yaml
+index 737b90f..50c0fc1 100644
+--- a/rime/ipa.dict.yaml
++++ b/rime/ipa.dict.yaml
+@@ -3,16 +3,18 @@
+ # 由 gen_rime.py 自 IPA_master.csv 產生,勿手改;修改請改 master 後重跑產生器。
+ ---
+ name: ipa
+-version: "0.1.0"
++version: "0.1.1"
+ sort: by_weight
+ use_preset_vocabulary: false
+ ...
++.	.	999
++\	\	999
++|	|	999
+ ǃ	!\	500
+ ˈ	"	500
+ ˌ	%	500
+ ɶ	&	500
+ ‿	-\	500
+-.	.	500
+ ɨ	1	500
+ ø	2	500
+ ɜ	3	500
+@@ -24,14 +26,9 @@ use_preset_vocabulary: false
+ œ	9	500
+ ː	:	500
+ ˑ	:\	500
+-˩	<B>	500
+ ꜜ	<D>	500
+ ↘	<F>	500
+-˦	<H>	500
+-˨	<L>	500
+-˧	<M>	500
+ ↗	<R>	500
+-˥	<T>	500
+ ꜛ	<U>	500
+ ʢ	<\	500
+ ̩	=	500
+@@ -87,16 +84,9 @@ use_preset_vocabulary: false
+ ʼ	_>	500
+ ˤ	_?\	500
+ ̘	_A	500
+-̏	_B	500
+-̂	_F	500
+ ˠ	_G	500
+-́	_H	500
+-̀	_L	500
+-̄	_M	500
+ ̼	_N	500
+ ̹	_O	500
+-̌	_R	500
+-̋	_T	500
+ ̆	_X	500
+ ̯	_^	500
+ ̺	_a	500
+@@ -170,7 +160,6 @@ z	z	500
+ ʑ	z\	500
+ ʐ	z`	500
+ æ	{	500
+-|	|	500
+ ǀ	|\	500
+ ǁ	|\|\	500
+ ‖	||	500
+@@ -194,6 +183,241 @@ d͡ʒ	jh	400
+ θ	th	400
+ ʍ	wh	400
+ ʒ	zh	400
++⁰	^0	300
++⁰⁰	^00	300
++⁰¹	^01	300
++⁰²	^02	300
++⁰³	^03	300
++⁰⁴	^04	300
++⁰⁵	^05	300
++⁰⁶	^06	300
++⁰⁷	^07	300
++⁰⁸	^08	300
++⁰⁹	^09	300
++¹	^1	300
++¹⁰	^10	300
++¹¹	^11	300
++¹¹¹	^111	300
++¹¹²	^112	300
++¹¹³	^113	300
++¹¹⁴	^114	300
++¹¹⁵	^115	300
++¹²	^12	300
++¹²¹	^121	300
++¹²²	^122	300
++¹²³	^123	300
++¹²⁴	^124	300
++¹²⁵	^125	300
++¹³	^13	300
++¹³¹	^131	300
++¹³²	^132	300
++¹³³	^133	300
++¹³⁴	^134	300
++¹³⁵	^135	300
++¹⁴	^14	300
++¹⁴¹	^141	300
++¹⁴²	^142	300
++¹⁴³	^143	300
++¹⁴⁴	^144	300
++¹⁴⁵	^145	300
++¹⁵	^15	300
++¹⁵¹	^151	300
++¹⁵²	^152	300
++¹⁵³	^153	300
++¹⁵⁴	^154	300
++¹⁵⁵	^155	300
++¹⁶	^16	300
++¹⁷	^17	300
++¹⁸	^18	300
++¹⁹	^19	300
++²	^2	300
++²⁰	^20	300
++²¹	^21	300
++²¹¹	^211	300
++²¹²	^212	300
++²¹³	^213	300
++²¹⁴	^214	300
++²¹⁵	^215	300
++²²	^22	300
++²²¹	^221	300
++²²²	^222	300
++²²³	^223	300
++²²⁴	^224	300
++²²⁵	^225	300
++²³	^23	300
++²³¹	^231	300
++²³²	^232	300
++²³³	^233	300
++²³⁴	^234	300
++²³⁵	^235	300
++²⁴	^24	300
++²⁴¹	^241	300
++²⁴²	^242	300
++²⁴³	^243	300
++²⁴⁴	^244	300
++²⁴⁵	^245	300
++²⁵	^25	300
++²⁵¹	^251	300
++²⁵²	^252	300
++²⁵³	^253	300
++²⁵⁴	^254	300
++²⁵⁵	^255	300
++²⁶	^26	300
++²⁷	^27	300
++²⁸	^28	300
++²⁹	^29	300
++³	^3	300
++³⁰	^30	300
++³¹	^31	300
++³¹¹	^311	300
++³¹²	^312	300
++³¹³	^313	300
++³¹⁴	^314	300
++³¹⁵	^315	300
++³²	^32	300
++³²¹	^321	300
++³²²	^322	300
++³²³	^323	300
++³²⁴	^324	300
++³²⁵	^325	300
++³³	^33	300
++³³¹	^331	300
++³³²	^332	300
++³³³	^333	300
++³³⁴	^334	300
++³³⁵	^335	300
++³⁴	^34	300
++³⁴¹	^341	300
++³⁴²	^342	300
++³⁴³	^343	300
++³⁴⁴	^344	300
++³⁴⁵	^345	300
++³⁵	^35	300
++³⁵¹	^351	300
++³⁵²	^352	300
++³⁵³	^353	300
++³⁵⁴	^354	300
++³⁵⁵	^355	300
++³⁶	^36	300
++³⁷	^37	300
++³⁸	^38	300
++³⁹	^39	300
++⁴	^4	300
++⁴⁰	^40	300
++⁴¹	^41	300
++⁴¹¹	^411	300
++⁴¹²	^412	300
++⁴¹³	^413	300
++⁴¹⁴	^414	300
++⁴¹⁵	^415	300
++⁴²	^42	300
++⁴²¹	^421	300
++⁴²²	^422	300
++⁴²³	^423	300
++⁴²⁴	^424	300
++⁴²⁵	^425	300
++⁴³	^43	300
++⁴³¹	^431	300
++⁴³²	^432	300
++⁴³³	^433	300
++⁴³⁴	^434	300
++⁴³⁵	^435	300
++⁴⁴	^44	300
++⁴⁴¹	^441	300
++⁴⁴²	^442	300
++⁴⁴³	^443	300
++⁴⁴⁴	^444	300
++⁴⁴⁵	^445	300
++⁴⁵	^45	300
++⁴⁵¹	^451	300
++⁴⁵²	^452	300
++⁴⁵³	^453	300
++⁴⁵⁴	^454	300
++⁴⁵⁵	^455	300
++⁴⁶	^46	300
++⁴⁷	^47	300
++⁴⁸	^48	300
++⁴⁹	^49	300
++⁵	^5	300
++⁵⁰	^50	300
++⁵¹	^51	300
++⁵¹¹	^511	300
++⁵¹²	^512	300
++⁵¹³	^513	300
++⁵¹⁴	^514	300
++⁵¹⁵	^515	300
++⁵²	^52	300
++⁵²¹	^521	300
++⁵²²	^522	300
++⁵²³	^523	300
++⁵²⁴	^524	300
++⁵²⁵	^525	300
++⁵³	^53	300
++⁵³¹	^531	300
++⁵³²	^532	300
++⁵³³	^533	300
++⁵³⁴	^534	300
++⁵³⁵	^535	300
++⁵⁴	^54	300
++⁵⁴¹	^541	300
++⁵⁴²	^542	300
++⁵⁴³	^543	300
++⁵⁴⁴	^544	300
++⁵⁴⁵	^545	300
++⁵⁵	^55	300
++⁵⁵¹	^551	300
++⁵⁵²	^552	300
++⁵⁵³	^553	300
++⁵⁵⁴	^554	300
++⁵⁵⁵	^555	300
++⁵⁶	^56	300
++⁵⁷	^57	300
++⁵⁸	^58	300
++⁵⁹	^59	300
++⁶	^6	300
++⁶⁰	^60	300
++⁶¹	^61	300
++⁶²	^62	300
++⁶³	^63	300
++⁶⁴	^64	300
++⁶⁵	^65	300
++⁶⁶	^66	300
++⁶⁷	^67	300
++⁶⁸	^68	300
++⁶⁹	^69	300
++⁷	^7	300
++⁷⁰	^70	300
++⁷¹	^71	300
++⁷²	^72	300
++⁷³	^73	300
++⁷⁴	^74	300
++⁷⁵	^75	300
++⁷⁶	^76	300
++⁷⁷	^77	300
++⁷⁸	^78	300
++⁷⁹	^79	300
++⁸	^8	300
++⁸⁰	^80	300
++⁸¹	^81	300
++⁸²	^82	300
++⁸³	^83	300
++⁸⁴	^84	300
++⁸⁵	^85	300
++⁸⁶	^86	300
++⁸⁷	^87	300
++⁸⁸	^88	300
++⁸⁹	^89	300
++⁹	^9	300
++⁹⁰	^90	300
++⁹¹	^91	300
++⁹²	^92	300
++⁹³	^93	300
++⁹⁴	^94	300
++⁹⁵	^95	300
++⁹⁶	^96	300
++⁹⁷	^97	300
++⁹⁸	^98	300
++⁹⁹	^99	300
+ ̟	adv	300
+ ɹ	ala	300
+ t͡s	alaf	300
+@@ -312,22 +536,8 @@ c	pjp	300
+ ˈ	str1	300
+ ˌ	str2	300
+ ̩	syl	300
+-̏	td1	300
+-̀	td2	300
+-̄	td3	300
+-́	td4	300
+-̋	td5	300
+-̂	tdf	300
+-̌	tdr	300
+ ͡	tie	300
+ ͜	tieb	300
+-˩	tl1	300
+-˩˥	tl15	300
+-˨	tl2	300
+-˧	tl3	300
+-˦	tl4	300
+-˥	tl5	300
+-˥˩	tl51	300
+ ꜛ	ustep	300
+ χ	uvf	300
+ ʛ	uvim	300
+@@ -366,18 +576,165 @@ d͡ʒ	vpaaf	300
+ ɡ	vvep	300
+ ˠ	vzd	300
+ ̆	xsh	300
++˩	|1	300
++˩˩	|11	300
++˩˩˩	|111	300
++˩˩˨	|112	300
++˩˩˧	|113	300
++˩˩˦	|114	300
++˩˩˥	|115	300
++˩˨	|12	300
++˩˨˩	|121	300
++˩˨˨	|122	300
++˩˨˧	|123	300
++˩˨˦	|124	300
++˩˨˥	|125	300
++˩˧	|13	300
++˩˧˩	|131	300
++˩˧˨	|132	300
++˩˧˧	|133	300
++˩˧˦	|134	300
++˩˧˥	|135	300
++˩˦	|14	300
++˩˦˩	|141	300
++˩˦˨	|142	300
++˩˦˧	|143	300
++˩˦˦	|144	300
++˩˦˥	|145	300
++˩˥	|15	300
++˩˥˩	|151	300
++˩˥˨	|152	300
++˩˥˧	|153	300
++˩˥˦	|154	300
++˩˥˥	|155	300
++˨	|2	300
++˨˩	|21	300
++˨˩˩	|211	300
++˨˩˨	|212	300
++˨˩˧	|213	300
++˨˩˦	|214	300
++˨˩˥	|215	300
++˨˨	|22	300
++˨˨˩	|221	300
++˨˨˨	|222	300
++˨˨˧	|223	300
++˨˨˦	|224	300
++˨˨˥	|225	300
++˨˧	|23	300
++˨˧˩	|231	300
++˨˧˨	|232	300
++˨˧˧	|233	300
++˨˧˦	|234	300
++˨˧˥	|235	300
++˨˦	|24	300
++˨˦˩	|241	300
++˨˦˨	|242	300
++˨˦˧	|243	300
++˨˦˦	|244	300
++˨˦˥	|245	300
++˨˥	|25	300
++˨˥˩	|251	300
++˨˥˨	|252	300
++˨˥˧	|253	300
++˨˥˦	|254	300
++˨˥˥	|255	300
++˧	|3	300
++˧˩	|31	300
++˧˩˩	|311	300
++˧˩˨	|312	300
++˧˩˧	|313	300
++˧˩˦	|314	300
++˧˩˥	|315	300
++˧˨	|32	300
++˧˨˩	|321	300
++˧˨˨	|322	300
++˧˨˧	|323	300
++˧˨˦	|324	300
++˧˨˥	|325	300
++˧˧	|33	300
++˧˧˩	|331	300
++˧˧˨	|332	300
++˧˧˧	|333	300
++˧˧˦	|334	300
++˧˧˥	|335	300
++˧˦	|34	300
++˧˦˩	|341	300
++˧˦˨	|342	300
++˧˦˧	|343	300
++˧˦˦	|344	300
++˧˦˥	|345	300
++˧˥	|35	300
++˧˥˩	|351	300
++˧˥˨	|352	300
++˧˥˧	|353	300
++˧˥˦	|354	300
++˧˥˥	|355	300
++˦	|4	300
++˦˩	|41	300
++˦˩˩	|411	300
++˦˩˨	|412	300
++˦˩˧	|413	300
++˦˩˦	|414	300
++˦˩˥	|415	300
++˦˨	|42	300
++˦˨˩	|421	300
++˦˨˨	|422	300
++˦˨˧	|423	300
++˦˨˦	|424	300
++˦˨˥	|425	300
++˦˧	|43	300
++˦˧˩	|431	300
++˦˧˨	|432	300
++˦˧˧	|433	300
++˦˧˦	|434	300
++˦˧˥	|435	300
++˦˦	|44	300
++˦˦˩	|441	300
++˦˦˨	|442	300
++˦˦˧	|443	300
++˦˦˦	|444	300
++˦˦˥	|445	300
++˦˥	|45	300
++˦˥˩	|451	300
++˦˥˨	|452	300
++˦˥˧	|453	300
++˦˥˦	|454	300
++˦˥˥	|455	300
++˥	|5	300
++˥˩	|51	300
++˥˩˩	|511	300
++˥˩˨	|512	300
++˥˩˧	|513	300
++˥˩˦	|514	300
++˥˩˥	|515	300
++˥˨	|52	300
++˥˨˩	|521	300
++˥˨˨	|522	300
++˥˨˧	|523	300
++˥˨˦	|524	300
++˥˨˥	|525	300
++˥˧	|53	300
++˥˧˩	|531	300
++˥˧˨	|532	300
++˥˧˧	|533	300
++˥˧˦	|534	300
++˥˧˥	|535	300
++˥˦	|54	300
++˥˦˩	|541	300
++˥˦˨	|542	300
++˥˦˧	|543	300
++˥˦˦	|544	300
++˥˦˥	|545	300
++˥˥	|55	300
++˥˥˩	|551	300
++˥˥˨	|552	300
++˥˥˧	|553	300
++˥˥˦	|554	300
++˥˥˥	|555	300
+ ǃ	!	200
+-̋	\''	200
+ ˈ	\'1	200
+ ˌ	\'2	200
+-́	\'^	200
+ ̟	\+v	200
+-˩	\-1	200
+-˨	\-2	200
+-˧	\-3	200
+-˦	\-4	200
+-˥	\-5	200
+-̄	\-^	200
+ ̠	\-v	200
+ ˑ	\.f	200
+ ̥	\0v	200
+@@ -406,15 +763,12 @@ d͡ʒ	vpaaf	300
+ ⱱ	\V^	200
+ ˤ	\^9	200
+ ˠ	\^G	200
+-̂	\^^	200
+ ʰ	\^h	200
+ ʲ	\^j	200
+ ˡ	\^l	200
+ ⁿ	\^n	200
+ ʷ	\^w	200
+ ‿	\_u	200
+-̀	\`^	200
+-̏	\``	200
+ ɒ	\ab	200
+ æ	\ae	200
+ ʼ	\ap	200
+@@ -484,7 +838,6 @@ d͡ʒ	vpaaf	300
+ ʈ	\t.	200
+ θ	\tf	200
+ ʉ	\u-	200
+-̌	\v^	200
+ ʋ	\vs	200
+ ʌ	\vt	200
+ ̬	\vv	200
+diff --git a/rime/ipa.schema.yaml b/rime/ipa.schema.yaml
+index 8289eee..a603e17 100644
+--- a/rime/ipa.schema.yaml
++++ b/rime/ipa.schema.yaml
+@@ -4,7 +4,7 @@
+ schema:
+   schema_id: ipa
+   name: "IPA 國際音標"
+-  version: "0.1.0"
++  version: "0.1.1"
+   author:
+     - "IPA IME 專案"
+   description: |
+@@ -50,11 +50,30 @@ translator:
+ menu:
+   page_size: 9
+ 
++# numpad 綁為選字鍵(主鍵盤數字列送字面數字供 | / ^ 碼使用) (POC 驗證點 7)
+ key_binder:
+   import_preset: default
++  bindings:
++    - { when: has_menu, accept: KP_1, send: 1 }
++    - { when: has_menu, accept: KP_2, send: 2 }
++    - { when: has_menu, accept: KP_3, send: 3 }
++    - { when: has_menu, accept: KP_4, send: 4 }
++    - { when: has_menu, accept: KP_5, send: 5 }
++    - { when: has_menu, accept: KP_6, send: 6 }
++    - { when: has_menu, accept: KP_7, send: 7 }
++    - { when: has_menu, accept: KP_8, send: 8 }
++    - { when: has_menu, accept: KP_9, send: 9 }
+ 
++# 自訂標點:僅保留少數「非碼」標點即時上屏;. | \ 等已在 alphabet 中者不列入,
++# 讓 speller 於組字時取用(修 V3-b: \t. 尾端 . 不再延遲) (POC 驗證點 3)
+ punctuator:
+-  import_preset: default  # 在 alphabet 中的標點於組字時視為碼 (POC 驗證點 3)
++  half_shape:
++    ",": {commit: ", "}
++    "?": {commit: "? "}
++    "!": {commit: "! "}
+ 
+ recognizer:
+   import_preset: default
++  patterns:
++    # 保證以 \ 起首的 Praat 碼(含 \t. 等含標點者)全段落入 speller
++    ipa_code: "^\\[a-zA-Z0-9].*$"
+diff --git a/rime/weasel.custom.yaml b/rime/weasel.custom.yaml
+new file mode 100644
+index 0000000..a9c151c
+--- /dev/null
++++ b/rime/weasel.custom.yaml
+@@ -0,0 +1,7 @@
++# weasel.custom.yaml — 候選視窗外觀(接收端字型弱時,至少候選視窗正確顯示 IPA)
++# 需先安裝 Charis SIL(https://software.sil.org/charis/);未安裝可改 Gentium 或系統字型。
++patch:
++  "style/font_face": "Charis SIL"
++  "style/font_point": 16
++  "style/horizontal": true      # 候選橫排
++  "style/inline_preedit": true  # 組字串就地顯示
