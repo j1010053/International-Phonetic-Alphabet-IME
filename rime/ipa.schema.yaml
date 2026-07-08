@@ -1,10 +1,10 @@
-# Rime schema: IPA
+﻿# Rime schema: IPA
 # encoding: utf-8
 # 由 gen_rime.py 產生 (lang=zh)
 schema:
   schema_id: ipa
   name: "IPA 國際音標"
-  version: "0.1.1"
+  version: "0.1.3"
   author:
     - "IPA IME 專案"
   description: |
@@ -15,30 +15,32 @@ switches:
     reset: 0
     states: [ "IPA", "ABC" ]
 
+# 0.1.3: 結構仿官方 rime-ipa(rime/rime-ipa)——符號密集 alphabet 的正解:
+# 整條標點管線(punctuator/recognizer/matcher/punct_segmentor/punct_translator)拆除,
+# 標點鍵一律走 speller/碼表。punct_segmentor 搶走 . 形成無候選死段即 V3-b 元凶。
 engine:
   processors:
     - ascii_composer
-    - recognizer
     - key_binder
     - speller
-    - punctuator
     - selector
     - navigator
-    - fluid_editor        # 語句流編輯器: 選字累積於緩衝, Enter 整串上屏 (POC 驗證點 1)
+    - fluid_editor        # 語句流編輯器: 選字累積於緩衝, Enter 整串上屏
   segmentors:
     - ascii_segmentor
-    - matcher
     - abc_segmentor
-    - punct_segmentor
     - fallback_segmentor
   translators:
-    - punct_translator
+    - echo_translator     # 無任何候選時, 以原始輸入碼為候選(未匹配段可見、可上屏)
     - table_translator
 
 speller:
   alphabet: '!"%&''()+,-./0123456789:<=>?@ABCDEFGHIJKLMNOQRSTUVWXYZ\^_`abcdefghijklmnopqrstuvwxyz{|}~'
+  # initials: 僅這些鍵能「開始」組字(自動生成=有碼以其起首者, 手動排除 .)。
+  # 冷按 . 直接上屏字面句號; 碼中的 . (如 \t.) 照常有效。仿官方 rime-ipa。
+  initials: '!"%&-12346789:<=>?@ABCDEFGHIJKLMNOQRSTUVWXYZ\^_`abcdefghijklmnopqrstuvwxyz{|}~'
   delimiter: " ;"
-  auto_select: false      # 注音式: 唯一匹配不自動上屏 (POC 驗證點 2)
+  auto_select: false      # 注音式: 唯一匹配不自動上屏
 
 translator:
   dictionary: ipa
@@ -50,30 +52,18 @@ translator:
 menu:
   page_size: 9
 
-# numpad 綁為選字鍵(主鍵盤數字列送字面數字供 | / ^ 碼使用) (POC 驗證點 7)
+# numpad = 一般數字輸入(與主鍵盤數字列完全等價,含冷啟動組字) (0.1.2, V7)
 key_binder:
-  import_preset: default
   bindings:
-    - { when: has_menu, accept: KP_1, send: 1 }
-    - { when: has_menu, accept: KP_2, send: 2 }
-    - { when: has_menu, accept: KP_3, send: 3 }
-    - { when: has_menu, accept: KP_4, send: 4 }
-    - { when: has_menu, accept: KP_5, send: 5 }
-    - { when: has_menu, accept: KP_6, send: 6 }
-    - { when: has_menu, accept: KP_7, send: 7 }
-    - { when: has_menu, accept: KP_8, send: 8 }
-    - { when: has_menu, accept: KP_9, send: 9 }
+    - { when: always, accept: KP_0, send: 0 }
+    - { when: always, accept: KP_1, send: 1 }
+    - { when: always, accept: KP_2, send: 2 }
+    - { when: always, accept: KP_3, send: 3 }
+    - { when: always, accept: KP_4, send: 4 }
+    - { when: always, accept: KP_5, send: 5 }
+    - { when: always, accept: KP_6, send: 6 }
+    - { when: always, accept: KP_7, send: 7 }
+    - { when: always, accept: KP_8, send: 8 }
+    - { when: always, accept: KP_9, send: 9 }
+    - { when: always, accept: KP_Decimal, send: period }
 
-# 自訂標點:僅保留少數「非碼」標點即時上屏;. | \ 等已在 alphabet 中者不列入,
-# 讓 speller 於組字時取用(修 V3-b: \t. 尾端 . 不再延遲) (POC 驗證點 3)
-punctuator:
-  half_shape:
-    ",": {commit: ", "}
-    "?": {commit: "? "}
-    "!": {commit: "! "}
-
-recognizer:
-  import_preset: default
-  patterns:
-    # 保證以 \ 起首的 Praat 碼(含 \t. 等含標點者)全段落入 speller
-    ipa_code: "^\\[a-zA-Z0-9].*$"
