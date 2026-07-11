@@ -5,7 +5,7 @@
 語言參數目前影響方案名稱/說明(i18n 載體);碼不隨語言變。"""
 import csv, argparse, sys
 
-VERSION = '0.1.1'
+VERSION = '0.2.0'
 LAYER_WEIGHT = {'xsampa': 500, 'mnemonic': 400, 'descriptive': 300, 'praat': 200}
 
 def parse_codepoints(cp_field):
@@ -15,10 +15,17 @@ def parse_codepoints(cp_field):
 def load(master_path):
     rows = list(csv.DictReader(open(master_path, encoding='utf-8-sig')))
     entries = []  # (output_text, code, weight, layer, row_id)
-    # V3-a: 既是碼又是標點者,補「指向自己」的最高權重候選,使字面標點排第一。
-    # 先加入,dedupe 保留先見者(即高權重版),覆蓋碼表中同 (out,code) 的較低權重列。
-    for ch in ('.', '|', '\\'):
+    # 標點自指候選(0.1.2 通則化):
+    # 高權重 999(字面排第一): 使用者指定的 . | \ + 無獨立碼意義的標點(打得出字面)
+    # 低權重 50(字面為後位候選): 本身是 X-SAMPA/Praat 碼者(? ~ = : 等),IPA 符號仍排第一
+    # HIGH: 自指字面排第一。僅列 initials 內可達者;
+    # , ( ) ' / + 不在此列——它們無真實碼起首,將自動排除於 initials 外,冷按直接上屏字面。
+    PUNCT_HIGH = ['.', '|', '\\', '<', '>', '-']
+    PUNCT_LOW  = ['?', '~', '=', ':', '%', '"', '@', '&', '{', '}', '`', '_', '!']
+    for ch in PUNCT_HIGH:
         entries.append((ch, ch, 999, 'punct_self', 'PUNCT'))
+    for ch in PUNCT_LOW:
+        entries.append((ch, ch, 50, 'punct_self', 'PUNCT'))
     for r in rows:
         out = parse_codepoints(r['codepoint'])
         for layer in ('xsampa', 'descriptive', 'praat'):
@@ -32,15 +39,18 @@ def load(master_path):
     return rows, entries
 
 def dedupe_and_check(entries):
-    """去重(同輸出同碼) + 全層撞名檢查(同碼異輸出即失敗)"""
-    code_map = {}
+    """去重(同輸出同碼) + 全層撞名檢查(同碼異輸出即失敗)。
+    例外: punct_self 的低權重字面候選為刻意多候選(如 ? -> ʔ 與字面 ?),不視為撞名。"""
+    code_map = {}          # code -> (out, layer)
     clashes = []
     seen = set()
     result = []
     for out, code, w, layer, rid in entries:
-        if code in code_map and code_map[code] != out:
-            clashes.append((code, code_map[code], out))
-        code_map.setdefault(code, out)
+        if code in code_map:
+            prev_out, prev_layer = code_map[code]
+            if prev_out != out and 'punct_self' not in (prev_layer, layer):
+                clashes.append((code, prev_out, out))
+        code_map.setdefault(code, (out, layer))
         key = (out, code)
         if key in seen:
             continue
@@ -50,14 +60,23 @@ def dedupe_and_check(entries):
 
 def build_alphabet(entries):
     chars = set()
-    for _, code, _, _, _ in entries:
+    starts = set()
+    for _, code, _, layer, _ in entries:
         chars.update(code)
+        if layer != 'punct_self':   # 自指候選不算「真實碼」,不賦予起始資格
+            starts.add(code[0])
     if ' ' in chars:
         sys.exit('錯誤: 碼含空白,與 delimiter 衝突')
     if ';' in chars:
         sys.exit('錯誤: 碼含分號 ; ,與 delimiter 衝突')
     order = [c for c in map(chr, range(33, 127)) if c in chars]
-    return ''.join(order)
+    alphabet = ''.join(order)
+    # initials: 只有這些鍵能「開始」組字(仿官方 rime-ipa)。
+    # 自動規則: 有任何碼以該字元起首者才列入;再手動排除 '.'
+    # 使冷按 . 直接上屏字面句號(音節界符號即 . 本身,無損)。碼中 . 照常有效。
+    UX_EXCLUDE = {'.'}
+    initials = ''.join(c for c in order if c in starts and c not in UX_EXCLUDE)
+    return alphabet, initials
 
 DICT_HEADER = """# Rime dictionary: IPA
 # encoding: utf-8
@@ -87,30 +106,32 @@ switches:
     reset: 0
     states: [ "IPA", "ABC" ]
 
+# 0.1.3: 結構仿官方 rime-ipa(rime/rime-ipa)——符號密集 alphabet 的正解:
+# 整條標點管線(punctuator/recognizer/matcher/punct_segmentor/punct_translator)拆除,
+# 標點鍵一律走 speller/碼表。punct_segmentor 搶走 . 形成無候選死段即 V3-b 元凶。
 engine:
   processors:
     - ascii_composer
-    - recognizer
     - key_binder
     - speller
-    - punctuator
     - selector
     - navigator
-    - fluid_editor        # 語句流編輯器: 選字累積於緩衝, Enter 整串上屏 (POC 驗證點 1)
+    - fluid_editor        # 語句流編輯器: 選字累積於緩衝, Enter 整串上屏
   segmentors:
     - ascii_segmentor
-    - matcher
     - abc_segmentor
-    - punct_segmentor
     - fallback_segmentor
   translators:
-    - punct_translator
+    - echo_translator     # 無任何候選時, 以原始輸入碼為候選(未匹配段可見、可上屏)
     - table_translator
 
 speller:
   alphabet: '{alphabet}'
+  # initials: 僅這些鍵能「開始」組字(自動生成=有碼以其起首者, 手動排除 .)。
+  # 冷按 . 直接上屏字面句號; 碼中的 . (如 \\t.) 照常有效。仿官方 rime-ipa。
+  initials: '{initials}'
   delimiter: " {delim}"
-  auto_select: false      # 注音式: 唯一匹配不自動上屏 (POC 驗證點 2)
+  auto_select: false      # 注音式: 唯一匹配不自動上屏
 
 translator:
   dictionary: ipa
@@ -122,33 +143,22 @@ translator:
 menu:
   page_size: 9
 
-# numpad 綁為選字鍵(主鍵盤數字列送字面數字供 | / ^ 碼使用) (POC 驗證點 7)
+# 0.2.0 關鍵修正(使用者診斷): default key_binder 將 . 綁為翻頁鍵
+# (when: has_menu, accept: period, send: Page_Down),組字中 . 被吃去翻頁
+# 而未進 speller —— 即 V3-b 元凶。故不 import default,只留 numpad 綁定。
 key_binder:
-  import_preset: default
   bindings:
-    - {{ when: has_menu, accept: KP_1, send: 1 }}
-    - {{ when: has_menu, accept: KP_2, send: 2 }}
-    - {{ when: has_menu, accept: KP_3, send: 3 }}
-    - {{ when: has_menu, accept: KP_4, send: 4 }}
-    - {{ when: has_menu, accept: KP_5, send: 5 }}
-    - {{ when: has_menu, accept: KP_6, send: 6 }}
-    - {{ when: has_menu, accept: KP_7, send: 7 }}
-    - {{ when: has_menu, accept: KP_8, send: 8 }}
-    - {{ when: has_menu, accept: KP_9, send: 9 }}
-
-# 自訂標點:僅保留少數「非碼」標點即時上屏;. | \\ 等已在 alphabet 中者不列入,
-# 讓 speller 於組字時取用(修 V3-b: \\t. 尾端 . 不再延遲) (POC 驗證點 3)
-punctuator:
-  half_shape:
-    ",": {{commit: ", "}}
-    "?": {{commit: "? "}}
-    "!": {{commit: "! "}}
-
-recognizer:
-  import_preset: default
-  patterns:
-    # 保證以 \\ 起首的 Praat 碼(含 \\t. 等含標點者)全段落入 speller
-    ipa_code: "^\\\\[a-zA-Z0-9].*$"
+    - {{ when: always, accept: KP_0, send: 0 }}
+    - {{ when: always, accept: KP_1, send: 1 }}
+    - {{ when: always, accept: KP_2, send: 2 }}
+    - {{ when: always, accept: KP_3, send: 3 }}
+    - {{ when: always, accept: KP_4, send: 4 }}
+    - {{ when: always, accept: KP_5, send: 5 }}
+    - {{ when: always, accept: KP_6, send: 6 }}
+    - {{ when: always, accept: KP_7, send: 7 }}
+    - {{ when: always, accept: KP_8, send: 8 }}
+    - {{ when: always, accept: KP_9, send: 9 }}
+    - {{ when: always, accept: KP_Decimal, send: period }}
 """
 
 CUSTOM = """# default.custom.yaml — 將 IPA 方案掛入方案清單
@@ -179,7 +189,7 @@ def main():
             print(f'  {code!r}: {o1!r} vs {o2!r}')
         sys.exit(1)
 
-    alphabet = build_alphabet(entries)
+    alphabet, initials = build_alphabet(entries)
     # YAML 單引號字串: 內部單引號需雙寫(build_alphabet 已保證無單引號)
     entries.sort(key=lambda e: (-e[2], e[1]))
 
@@ -191,7 +201,8 @@ def main():
     t = I18N[a.lang]
     with open(f'{a.outdir}/ipa.schema.yaml', 'w', encoding='utf-8', newline='\n') as f:
         f.write(SCHEMA_TMPL.format(lang=a.lang, name=t['name'], ver=VERSION,
-                                   desc=t['desc'], alphabet=alphabet.replace("'", "''"), delim=';'))
+                                   desc=t['desc'], alphabet=alphabet.replace("'", "''"),
+                                   initials=initials.replace("'", "''"), delim=';'))
 
     with open(f'{a.outdir}/default.custom.yaml', 'w', encoding='utf-8', newline='\n') as f:
         f.write(CUSTOM)

@@ -194,6 +194,8 @@ for sym, xs, pl, mn, vd, mnem, src in OTHER:
     add('other', sym, xs, d, mnem, src, en, zh)
 # 其他符號 (特殊,直接給)
 add('other', 'ɺ', 'l\\', 'allx', '', '', 'voiced alveolar lateral flap', '濁齒齦邊閃音')
+add('other', 'ɚ', '@`', 'mdcrho', '', '', 'r-colored mid central vowel', '兒化中央元音')
+add('other', 'ɝ', '3`', 'omcrho', '', '', 'r-colored open-mid central vowel', '兒化半開央元音')
 add('other', 'ɧ', 'x\\', '', '', '', 'simultaneous ʃ and x', 'ʃ 與 x 同時')
 
 # ---- 5.2 非肺氣流子音 ----
@@ -347,6 +349,24 @@ for n in (1, 2, 3):
         cps = ' '.join('U+%04X' % SUP[int(d)] for d in combo)
         add('superscript', sup, '', '^' + digits, '', '', f'superscript {digits}', f'上標數字 {digits}', codepoint=cps)
 
+# 組合調符(0.2.0 補回——0.1.2 取消 td 碼時誤將整批列刪除;
+# 使用者決定為「組合調符用 X-SAMPA」,故列須存在、以 X-SAMPA 為碼):
+TONE_DIAC = [
+    ('extra-high','超高',0x030B,'_T',''),
+    ('high','高',0x0301,'_H',''),
+    ('mid','中',0x0304,'_M',''),
+    ('low','低',0x0300,'_L',''),
+    ('extra-low','超低',0x030F,'_B',''),
+    ('rising','升',0x030C,'_R',''),
+    ('falling','降',0x0302,'_F',''),
+    # 2020 官方表連調欄之擴充(無標準 X-SAMPA,以描述式承載):
+    ('high rising','高升',0x1DC4,'','hrise'),
+    ('low rising','低升',0x1DC5,'','lrise'),
+    ('rising-falling','升降',0x1DC8,'','rfall'),
+]
+for en, zh, cp_, xs, dsc in TONE_DIAC:
+    add('tone_diacritic', '\u25CC'+chr(cp_), xs, dsc, '', '', f'{en} tone (diacritic)', f'{zh}調（調符）', notes='combining', codepoint='U+%04X' % cp_)
+
 # 其他調號
 OTHERTONE = [
     ('downstep','降階',0xA71C,'<D>','dstep'),
@@ -361,12 +381,59 @@ for en, zh, code, xs, c in OTHERTONE:
 add('tie', '\u25CC\u0361\u25CC', '_', 'tie', '', '', 'tie bar (above)', '連結弧（上）', notes='combining;塞擦/雙重調音', codepoint='U+0361')
 add('tie', '\u25CC\u035C\u25CC', '', 'tieb', '', '', 'tie bar (below)', '連結弧（下）', notes='combining', codepoint='U+035C')
 
+# ---- P4 預組合 (combo): 常見「基底+附加符號」預生成為單列, 上屏即 NFC 完整序列 ----
+import unicodedata
+_idx = {}
+for r in rows:
+    _idx.setdefault(r['symbol'], r)
+
+def combo(base_sym, mark_cp, xs_suffix, desc_suffix, en_prefix, zh_prefix, xs_only=False):
+    b = _idx.get(base_sym)
+    if b is None:
+        raise KeyError(f'combo 基底不存在: {base_sym}')
+    out = unicodedata.normalize('NFC', ''.join(chr(int(t[2:],16)) for t in b['codepoint'].split()) + chr(mark_cp))
+    xs = (b['xsampa'] + xs_suffix) if b['xsampa'] else ''
+    de = '' if (xs_only or not b['descriptive'] or not desc_suffix) else (b['descriptive'] + desc_suffix)
+    cps = ' '.join('U+%04X' % ord(c) for c in out)
+    add('combo', out, xs, de, '', '', f'{en_prefix} {b["desc_en"]}', f'{zh_prefix}{b["desc_zh"]}', codepoint=cps)
+
+VOWEL_SYMS = [v[0] for v in VOWELS]
+# 送氣 (ʰ U+02B0)
+for s_ in ['p','t','k','c','q','ʈ','t͡s','t͡ʃ','t͡ɕ']:
+    combo(s_, 0x02B0, '_h', 'asp', 'aspirated', '送氣')
+# 擠喉 (ʼ U+02BC)
+for s_ in ['p','t','k','q','c','ʈ','t͡s','t͡ʃ','t͡ɕ','s','ɬ']:
+    combo(s_, 0x02BC, '_>', 'ej', 'ejective', '擠喉')
+# 鼻化母音 (U+0303, 全母音)
+for s_ in VOWEL_SYMS:
+    combo(s_, 0x0303, '~', 'nas', 'nasalized', '鼻化')
+# 帶調母音 (X-SAMPA only, 全母音 x 7 調)
+for en, zh, cp2, xs, _dsc in TONE_DIAC[:7]:  # 僅有 X-SAMPA 之七調; 連調擴充另行
+    for s_ in VOWEL_SYMS:
+        combo(s_, cp2, xs, '', f'{en}-tone', f'{zh}調', xs_only=True)
+# 成音節 (U+0329)
+for s_ in ['m','n','ŋ','l','r']:
+    combo(s_, 0x0329, '=', 'syl', 'syllabic', '成音節')
+# 清化響音 (U+0325)
+for s_ in ['m','n','ŋ','ɲ','l','r','w','j']:
+    combo(s_, 0x0325, '_0', 'dev', 'voiceless', '清化')
+# 齒化 (U+032A)
+for s_ in ['t','d','n','l']:
+    combo(s_, 0x032A, '_d', 'dnt', 'dental', '齒化')
+# 唇化 (ʷ U+02B7)
+for s_ in ['k','ɡ','q','ŋ','x']:
+    combo(s_, 0x02B7, '_w', 'lab', 'labialized', '唇化')
+# ɫ (U+026B, 軟顎化 l; X-SAMPA 慣用 5 與 l_e 兩式)
+add('combo', '\u026B', '5', 'allvph', '', '', 'velarized alveolar lateral approximant', '軟顎化齒齦邊近音', codepoint='U+026B')
+add('combo', '\u026B', 'l_e', '', '', '', 'velarized alveolar lateral approximant', '軟顎化齒齦邊近音', codepoint='U+026B')
+
 # ---- 指派 id ----
 for i, r in enumerate(rows, 1):
     r['id'] = f'{r["category"][:3].upper()}{i:03d}'
 
 cols = ['id','category','symbol','codepoint','xsampa','descriptive','mnemonic','mnemonic_source','praat','desc_en','desc_zh','notes']
-out = '/mnt/user-data/outputs/IPA_master.csv'
+import os
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'IPA_master.csv')
 with open(out, 'w', newline='', encoding='utf-8-sig') as f:
     w = csv.DictWriter(f, fieldnames=cols)
     w.writeheader()

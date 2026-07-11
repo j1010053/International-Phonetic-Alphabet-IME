@@ -62,8 +62,8 @@ python gen_rime.py --master ..\master\IPA_master.csv --outdir .
 | P0 鎖定 IPA 版本（2020） | ✅ |
 | P1 編碼方案規格 v0.4 | ✅ |
 | P2 Master 主資料來源（173 列） | ✅ |
-| P3 Rime schema POC（497 條） | 🔄 待 Windows 實測 |
-| P4 碼表完整化（預生成附加符號組合） | ⬜ |
+| P3 Rime schema POC | ✅（V1–V8 全數通過） |
+| P4 碼表完整化（全 2020 覆蓋、combo 預生成、1219 條） | ✅ |
 | P5 候選說明 | ⬜ |
 | P6 可選字型元件 | ⬜ |
 | P7 打包與部署 | ⬜ |

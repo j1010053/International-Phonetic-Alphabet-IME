@@ -1,10 +1,10 @@
-﻿# Rime schema: IPA
+# Rime schema: IPA
 # encoding: utf-8
 # 由 gen_rime.py 產生 (lang=zh)
 schema:
   schema_id: ipa
   name: "IPA 國際音標"
-  version: "0.1.3"
+  version: "0.2.0"
   author:
     - "IPA IME 專案"
   description: |
@@ -38,7 +38,7 @@ speller:
   alphabet: '!"%&''()+,-./0123456789:<=>?@ABCDEFGHIJKLMNOQRSTUVWXYZ\^_`abcdefghijklmnopqrstuvwxyz{|}~'
   # initials: 僅這些鍵能「開始」組字(自動生成=有碼以其起首者, 手動排除 .)。
   # 冷按 . 直接上屏字面句號; 碼中的 . (如 \t.) 照常有效。仿官方 rime-ipa。
-  initials: '!"%&-12346789:<=>?@ABCDEFGHIJKLMNOQRSTUVWXYZ\^_`abcdefghijklmnopqrstuvwxyz{|}~'
+  initials: '!"%&-123456789:<=>?@ABCDEFGHIJKLMNOQRSTUVWXYZ\^_`abcdefghijklmnopqrstuvwxyz{|}~'
   delimiter: " ;"
   auto_select: false      # 注音式: 唯一匹配不自動上屏
 
@@ -52,7 +52,9 @@ translator:
 menu:
   page_size: 9
 
-# numpad = 一般數字輸入(與主鍵盤數字列完全等價,含冷啟動組字) (0.1.2, V7)
+# 0.2.0 關鍵修正(使用者診斷): default key_binder 將 . 綁為翻頁鍵
+# (when: has_menu, accept: period, send: Page_Down),組字中 . 被吃去翻頁
+# 而未進 speller —— 即 V3-b 元凶。故不 import default,只留 numpad 綁定。
 key_binder:
   bindings:
     - { when: always, accept: KP_0, send: 0 }
@@ -66,4 +68,3 @@ key_binder:
     - { when: always, accept: KP_8, send: 8 }
     - { when: always, accept: KP_9, send: 9 }
     - { when: always, accept: KP_Decimal, send: period }
-
